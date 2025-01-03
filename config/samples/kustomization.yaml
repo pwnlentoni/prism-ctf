@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- prism-ctf_v1_sharedchallenge.yaml
+- prism-ctf_v1_isolatedchallenge.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

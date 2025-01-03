@@ -1,0 +1,100 @@
+apiVersion: prism-ctf.pwnlentoni.team/v1
+kind: IsolatedChallenge
+metadata:
+  labels:
+    app.kubernetes.io/name: prism-ctf
+    app.kubernetes.io/managed-by: kustomize
+  name: isolatedchallenge-sample
+spec:
+  lifetime: 10m
+  template: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: "ctf-{{ .DeploymentId }}"
+      namespace: prism-ctf-challenges-isolated
+      labels:
+        prism-ctf.pwnlentoni.team/type: web
+        prism-ctf.pwnlentoni.team/name: whoami
+        isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+        isolated.prism-ctf.pwnlentoni.team/owner: "{{ .OwnerId }}"
+      annotations:
+        janitor/expires: "{{ .Expires }}"
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+          isolated.prism-ctf.pwnlentoni.team/owner: "{{ .OwnerId }}"
+      template:
+        metadata:
+          labels:
+            role: web
+            prism-ctf.pwnlentoni.team/type: web
+            prism-ctf.pwnlentoni.team/name: whoami
+            isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+            isolated.prism-ctf.pwnlentoni.team/owner: "{{ .OwnerId }}"
+        spec:
+          enableServiceLinks: false
+          automountServiceAccountToken: false
+          containers:
+          - name: web
+            image: containous/whoami:latest 
+            resources:
+              limits:
+                cpu: 20m
+                memory: 64Mi
+              requests:
+                cpu: 10m
+                memory: 32Mi
+            ports:
+            - containerPort: 80
+              name: port-80
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: "ctf-{{ .DeploymentId }}"
+      namespace: prism-ctf-challenges-isolated
+      labels:
+        prism-ctf.pwnlentoni.team/type: web
+        prism-ctf.pwnlentoni.team/name: whoami
+        isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+        isolated.prism-ctf.pwnlentoni.team/owner: "{{ .OwnerId }}"
+      annotations:
+        janitor/expires: "{{ .Expires }}"
+    spec:
+      selector:
+        role: web
+        isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+      ports:
+        - port: 80
+          name: port-80
+    ---
+    apiVersion: traefik.io/v1alpha1
+    kind: IngressRoute
+    metadata:
+      name: ingress-ctf-{{ .DeploymentId }}
+      namespace: prism-ctf-challenges-isolated
+      labels:
+        prism-ctf.pwnlentoni.team/type: web
+        prism-ctf.pwnlentoni.team/name: whoami
+        isolated.prism-ctf.pwnlentoni.team/deployment: "{{ .DeploymentId }}"
+        isolated.prism-ctf.pwnlentoni.team/owner: "{{ .OwnerId }}"
+      annotations:
+        janitor/expires: "{{ .Expires }}"
+    spec:
+      entryPoints:
+        - web
+        - websecure
+      tls:
+        certResolver: default
+      routes:
+        - match: Host(`{{ .DeploymentId }}.{{ .Domain }}`)
+          kind: Rule
+          priority: 10
+          middlewares:
+          - name: secure-headers
+          services:
+          - name: ctf-{{ .DeploymentId }}
+            port: 80

@@ -1,0 +1,7 @@
+namespace: prism-ctf-system
+resources:
+- manifests.yaml
+- service.yaml
+
+configurations:
+- kustomizeconfig.yaml
