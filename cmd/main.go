@@ -117,6 +117,9 @@ func main() {
 		// TODO(user): If CertDir, CertName, and KeyName are not specified, controller-runtime will automatically
 		// generate self-signed certificates for the metrics server. While convenient for development and testing,
 		// this setup is not recommended for production.
+		metricsServerOptions.CertDir = "/tmp/k8s-metrics-server/serving-certs"
+		metricsServerOptions.CertName = "tls.crt"
+		metricsServerOptions.KeyName = "tls.key"
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
