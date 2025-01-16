@@ -1,0 +1,4 @@
+resources:
+- gateway.yaml
+- redirect-http-to-https.yaml
+namePrefix: ""

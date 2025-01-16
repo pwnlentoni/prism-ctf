@@ -27,8 +27,8 @@ import (
 type SharedChallengeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	Template string `json:"template"`
+	Containers []ContainerSpec `json:"containers"`
+	Exposes    []ExposeSpec    `json:"exposes"`
 }
 
 // SharedChallengeStatus defines the observed state of SharedChallenge.
@@ -39,6 +39,7 @@ type SharedChallengeStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
 // SharedChallenge is the Schema for the sharedchallenges API.
 type SharedChallenge struct {

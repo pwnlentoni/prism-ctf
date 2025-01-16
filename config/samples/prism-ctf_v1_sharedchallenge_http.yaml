@@ -1,0 +1,65 @@
+apiVersion: prism-ctf.pwnlentoni.team/v1
+kind: SharedChallenge
+metadata:
+  name: whoami-http
+spec:
+  containers:
+    - ports:
+        - port: 80
+          proto: TCP
+      egress: false
+      replicas: 2
+      spec:
+        name: backend
+        image: traefik/whoami:latest
+        resources:
+          limits:
+            cpu: 20m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+    - ports:
+        - port: 1337
+          proto: TCP
+      egress: false
+      replicas: 1
+      spec:
+        name: socaz-no-egress
+        image: cybersecnatlab/socaz:python-3.12-bookworm
+        resources:
+          limits:
+            cpu: 20m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+        command: [ socaz, --bind, "1337", -e, -v, -F, "flag{TEST_[random 8]}", -c, sh ]
+    - ports:
+        - port: 1337
+          proto: TCP
+      egress: true
+      replicas: 1
+      spec:
+        name: socaz-egress
+        image: cybersecnatlab/socaz:python-3.12-bookworm
+        resources:
+          limits:
+            cpu: 20m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+        command: [ socaz, --bind, "1337", -e, -v, -F, "flag{TEST_[random 8]}", -c, sh ]
+  exposes:
+    - container: backend
+      port: 80
+      protocol: HTTP
+    - container: socaz-no-egress
+      port: 1337
+      protocol: TCP
+      name: "noeg"
+    - container: socaz-egress
+      port: 1337
+      protocol: TCP
+      name: "eg"

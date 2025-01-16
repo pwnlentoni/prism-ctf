@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder-tcp
+  namespace: prism-ctf-placeholders
+  labels:
+    prism-ctf.pwnlentoni.team/placeholder: tcp
+    app.kubernetes.io/name: prism-ctf-placeholder-tcp
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      prism-ctf.pwnlentoni.team/placeholder: tcp
+      app.kubernetes.io/name: prism-ctf-placeholder-tcp
+  replicas: 1
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        prism-ctf.pwnlentoni.team/placeholder: tcp
+        app.kubernetes.io/name: prism-ctf-placeholder-tcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - image: placeholder-tcp:latest
+        name: placeholder-tcp
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder-http
+  namespace: prism-ctf-placeholders
+  labels:
+    prism-ctf.pwnlentoni.team/placeholder: http
+    app.kubernetes.io/name: prism-ctf-placeholder-http
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      prism-ctf.pwnlentoni.team/placeholder: http
+      app.kubernetes.io/name: prism-ctf-placeholder-http
+  replicas: 1
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        prism-ctf.pwnlentoni.team/placeholder: http
+        app.kubernetes.io/name: prism-ctf-placeholder-http
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - image: placeholder-http:latest
+          name: placeholder-http
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 10

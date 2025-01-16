@@ -19,16 +19,13 @@ package v1
 import (
 	"context"
 	"fmt"
-	"github.com/pwnlentoni/prism-ctf/internal/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
+	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 )
 
 // nolint:unused
@@ -60,6 +57,20 @@ type SharedChallengeCustomValidator struct {
 
 var _ webhook.CustomValidator = &SharedChallengeCustomValidator{}
 
+func (v *SharedChallengeCustomValidator) validate(chall *prismctfv1.SharedChallenge) (warnings admission.Warnings, err error) {
+	containers, err := validateContainers(chall.Spec.Containers)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validateExposures(containers, chall.Spec.Exposes)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.
 func (v *SharedChallengeCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	chall, ok := obj.(*prismctfv1.SharedChallenge)
@@ -68,17 +79,7 @@ func (v *SharedChallengeCustomValidator) ValidateCreate(ctx context.Context, obj
 	}
 	sharedchallengelog.Info("Validation for SharedChallenge upon creation", "name", chall.GetName())
 
-	doc, err := utils.RenderSharedTemplate(chall.Spec.Template, "challs.pwnlentoni.team")
-	if err != nil {
-		return nil, err
-	}
-
-	err = validateDoc(ctx, v.Client, sharedchallengelog, doc, utils.SharedChallengesNamespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return v.validate(chall)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.
@@ -89,9 +90,7 @@ func (v *SharedChallengeCustomValidator) ValidateUpdate(ctx context.Context, old
 	}
 	sharedchallengelog.Info("Validation for SharedChallenge upon update", "name", chall.GetName())
 
-	// TODO(user): fill in your validation logic upon object update.
-
-	return nil, nil
+	return v.validate(chall)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.

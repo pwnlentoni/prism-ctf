@@ -5,6 +5,23 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - '*'
+  resources:
+  - ciliumnetworkpolicies
+  - deployments
+  - httproutes
+  - namespaces
+  - services
+  - tlsroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - prism-ctf.pwnlentoni.team
   resources:
   - sharedchallenges
@@ -30,27 +47,3 @@ rules:
   - get
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: manager-role
-  namespace: prism-ctf-challenges
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - deployments
-  - ingresses
-  - ingressroutes
-  - ingressroutetcps
-  - pods
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

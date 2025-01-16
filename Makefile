@@ -1,5 +1,11 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMGBASE ?= registry.gitlab.com/augustozanellato/test-container-registry
+IMGTAG ?= latest
+IMG ?= $(IMGBASE):$(IMGTAG)
+TCPIMG ?= $(IMGBASE)/placeholder-tcp:$(IMGTAG)
+HTTPIMG ?= $(IMGBASE)/placeholder-http:$(IMGTAG)
+CHALLS_DOMAIN ?= challs.pwnlentoni.team
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
 
@@ -104,10 +110,18 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build -t ${TCPIMG} -f Dockerfile.tcp .
+	$(CONTAINER_TOOL) build -t ${HTTPIMG} -f Dockerfile.http .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+	$(CONTAINER_TOOL) push ${TCPIMG}
+	$(CONTAINER_TOOL) push ${HTTPIMG}
+
+.PHONY: kind-load
+kind-load: ## Load docker images to kind
+	kind load docker-image ${IMG} ${TCPIMG} ${HTTPIMG}
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -120,9 +134,12 @@ PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile.tcp > Dockerfile.tcp.cross
 	- $(CONTAINER_TOOL) buildx create --name prism-ctf-builder
 	$(CONTAINER_TOOL) buildx use prism-ctf-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${TCPIMG} -f Dockerfile.tcp.cross .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${HTTPIMG} -f Dockerfile.http .
 	- $(CONTAINER_TOOL) buildx rm prism-ctf-builder
 	rm Dockerfile.cross
 
@@ -130,7 +147,8 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/install.yaml
+	cd config/placeholders && $(KUSTOMIZE) edit set image placeholder-tcp=${TCPIMG} placeholder-http=${HTTPIMG}
+	$(KUSTOMIZE) build config/default | sed 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' > dist/install.yaml
 
 ##@ Deployment
 
@@ -140,20 +158,21 @@ endif
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/crd | sed 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/crd | sed 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	cd config/placeholders && $(KUSTOMIZE) edit set image placeholder-tcp=${TCPIMG} placeholder-http=${HTTPIMG}
+	$(KUSTOMIZE) build config/default | sed 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/default | sed 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 
@@ -170,8 +189,8 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v5.5.0
-CONTROLLER_TOOLS_VERSION ?= v0.16.4
+KUSTOMIZE_VERSION ?= v5.6.0
+CONTROLLER_TOOLS_VERSION ?= v0.17.1
 ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v1.61.0
 

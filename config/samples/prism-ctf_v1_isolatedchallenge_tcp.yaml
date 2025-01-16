@@ -1,0 +1,26 @@
+apiVersion: prism-ctf.pwnlentoni.team/v1
+kind: IsolatedChallenge
+metadata:
+  name: whoami-iso-tcp
+spec:
+  lifetime: 10m
+  containers:
+    - ports:
+        - port: 8080
+          proto: TCP
+      egress: false
+      replicas: 2
+      spec:
+        name: backend
+        image: traefik/whoamitcp:latest
+        resources:
+          limits:
+            cpu: 20m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
+  exposes:
+    - container: backend
+      port: 8080
+      protocol: TCP

@@ -28,7 +28,8 @@ type IsolatedChallengeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Template string `json:"template"`
+	Containers []ContainerSpec `json:"containers"`
+	Exposes    []ExposeSpec    `json:"exposes"`
 	// +optional
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=date-time
@@ -47,6 +48,7 @@ type IsolatedChallengeStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
 // IsolatedChallenge is the Schema for the isolatedchallenges API.
 type IsolatedChallenge struct {

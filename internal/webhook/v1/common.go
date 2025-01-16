@@ -1,38 +1,58 @@
 package v1
 
 import (
-	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/pwnlentoni/prism-ctf/internal/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	challengesv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 )
 
-func validateObject(client client.Client, l logr.Logger, expectedNs string, obj unstructured.Unstructured) error {
-	hasNs, err := client.IsObjectNamespaced(&obj)
-	if err != nil {
-		return fmt.Errorf("is object namespaced: %w", err)
+func validateContainers(containers []challengesv1.ContainerSpec) (map[string]challengesv1.ContainerSpec, error) {
+	m := make(map[string]challengesv1.ContainerSpec, len(containers))
+	for _, spec := range containers {
+		name := spec.Spec.Name
+		ports := make(map[string]any, len(spec.Ports))
+		for _, port := range spec.Ports {
+			key := fmt.Sprint(port.Port, port.Protocol)
+			if _, ok := ports[key]; ok {
+				return nil, fmt.Errorf("duplicate port `%d` in container `%s`", port.Port, name)
+			}
+			ports[key] = nil
+		}
+		if _, ok := m[name]; ok {
+			return nil, fmt.Errorf("duplicate container name `%s`", name)
+		}
+		m[name] = spec
 	}
-	if hasNs && obj.GetNamespace() != expectedNs {
-		return fmt.Errorf("object `%s/%s` of kind `%s` doesn't have the expected namespace `%s`", obj.GetNamespace(), obj.GetName(), obj.GetKind(), expectedNs)
-	}
-	return nil
+	return m, nil
 }
 
-func validateDoc(ctx context.Context, client client.Client, l logr.Logger, doc, expectedNs string) error {
-	objs, err := utils.GetObjectsFromTemplate(client, ctx, doc)
-	if err != nil {
-		return err
-	}
-
-	for _, obj := range objs {
-		err = validateObject(client, l, expectedNs, obj)
-		if err != nil {
-			l.Error(err, "object validation failed", "kind", obj.GetKind(), "name", obj.GetNamespace()+"/"+obj.GetName())
-			return err
+func validateExposures(containers map[string]challengesv1.ContainerSpec, exposures []challengesv1.ExposeSpec) error {
+	names := make(map[string]int)
+	foundEmpty := false
+	for _, exposure := range exposures {
+		if len(exposure.Name) == 0 {
+			if foundEmpty {
+				return fmt.Errorf("challenge has multiple exposed ports without name")
+			} else {
+				foundEmpty = true
+			}
 		}
-		l.Info("got object from template", "kind", obj.GetKind(), "name", obj.GetNamespace()+"/"+obj.GetName())
+		if _, ok := names[exposure.Name]; ok {
+			return fmt.Errorf("challenge has duplicated port name `%s`", exposure.Name)
+		}
+		container, ok := containers[exposure.Container]
+		if !ok {
+			return fmt.Errorf("port `%d` references non existing container `%s`", exposure.Port, exposure.Container)
+		}
+		found := false
+		for _, port := range container.Ports {
+			if exposure.Port == port.Port {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("port `%d` not exposed by container `%s`", exposure.Port, exposure.Container)
+		}
 	}
 	return nil
 }

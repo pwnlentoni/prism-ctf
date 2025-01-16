@@ -1,0 +1,64 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: challenge-gateway
+  annotations:
+    cert-manager.io/issuer: prism-ctf-selfsigned-issuer
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8080
+      allowedRoutes:
+        namespaces:
+          from: Same  # only used to redirect to https
+
+    - name: https
+      protocol: HTTPS
+      hostname: "*.${challs_domain}"
+      port: 8443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: wildcard-challs-tls
+            namespace: ingress-traefik
+
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              prism-ctf.pwnlentoni.team/allow-gateway-routes: "true"
+
+    - name: tls
+      protocol: TLS
+      hostname: "*.${challs_domain}"
+      port: 31337
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: wildcard-challs-tls
+            namespace: ingress-traefik
+
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              prism-ctf.pwnlentoni.team/allow-gateway-routes: "true"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-wildcard-cert-access
+  namespace: ingress-traefik
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: prism-ctf-system
+  to:
+    - group: ""
+      kind: Secret

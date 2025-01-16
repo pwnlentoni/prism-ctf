@@ -13,7 +13,6 @@ repo: github.com/pwnlentoni/prism-ctf
 resources:
 - api:
     crdVersion: v1
-    namespaced: true
   controller: true
   domain: pwnlentoni.team
   group: prism-ctf
@@ -25,7 +24,6 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: true
   domain: pwnlentoni.team
   group: prism-ctf
   kind: IsolatedChallenge

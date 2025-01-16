@@ -19,7 +19,11 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"os"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -143,6 +147,30 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	err = gatewayv1.Install(mgr.GetScheme())
+	if err != nil {
+		setupLog.Error(err, "failed to install gateway v1")
+		os.Exit(1)
+	}
+
+	err = gatewayv1alpha2.Install(mgr.GetScheme())
+	if err != nil {
+		setupLog.Error(err, "failed to install gateway v1alpha2")
+		os.Exit(1)
+	}
+
+	err = ciliumv2.AddToScheme(mgr.GetScheme())
+	if err != nil {
+		setupLog.Error(err, "failed to install cilium")
+		os.Exit(1)
+	}
+
+	err = utils.RegisterCiliumComparisons()
+	if err != nil {
+		setupLog.Error(err, "failed to setup cilium comparisons")
 		os.Exit(1)
 	}
 

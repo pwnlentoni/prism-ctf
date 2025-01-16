@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: prism-ctf-placeholders
+    app.kubernetes.io/managed-by: kustomize
+    prism-ctf.pwnlentoni.team/allow-gateway-routes: 'true'
+  name: prism-ctf-placeholders

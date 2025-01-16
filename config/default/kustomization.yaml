@@ -32,6 +32,8 @@ resources:
 # Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
 # be able to communicate with the Webhook Server.
 #- ../network-policy
+- ../ingress
+- ../placeholders
 
 # Uncomment the patches line if you enable Metrics, and/or are using webhooks and cert-manager
 patches:
@@ -40,6 +42,7 @@ patches:
 - path: manager_metrics_patch.yaml
   target:
     kind: Deployment
+    name: controller-manager
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml

@@ -1,5 +1,14 @@
 package utils
 
-const SharedChallengesNamespace = "prism-ctf-challenges"
-
-// +kubebuilder:rbac:groups=*,resources=ingresses;ingressroutes;ingressroutetcps;pods;deployments;services,verbs=get;list;watch;create;update;patch;delete,namespace=prism-ctf-challenges
+const (
+	ManagedByLabel          = "app.kubernetes.io/managed-by"
+	ManagedByValue          = "prism-ctf"
+	ChallengeLabel          = "prism-ctf.pwnlentoni.team/challenge"
+	EgressEnabledLabel      = "prism-ctf.pwnlentoni.team/egress-enabled"
+	EgressEnabledValue      = "true"
+	ChallengeNamespaceLabel = "prism-ctf.pwnlentoni.team/challenge-namespace"
+	ChallengeNamespaceValue = "true"
+	ContainerNameLabel      = "prism-ctf.pwnlentoni.team/container"
+	GatewayAllowLabel       = "prism-ctf.pwnlentoni.team/allow-gateway-routes"
+	GatewayAllowValue       = "true"
+)

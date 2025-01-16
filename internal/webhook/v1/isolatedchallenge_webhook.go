@@ -75,6 +75,16 @@ func (v *IsolatedChallengeCustomValidator) validate(chal *prismctfv1.IsolatedCha
 	if spec.Lifetime.Duration < 5*time.Minute {
 		warnings = append(warnings, "lifetime under suggested 5 minutes")
 	}
+
+	constainers, err := validateContainers(chal.Spec.Containers)
+	if err != nil {
+		return
+	}
+
+	err = validateExposures(constainers, chal.Spec.Exposes)
+	if err != nil {
+		return
+	}
 	return
 }
 

@@ -1,0 +1,53 @@
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    prism-ctf.pwnlentoni.team/placeholder: tcp
+  name: placeholder-tcp
+  namespace: prism-ctf-placeholders
+spec:
+  hostnames:
+    - "*.${challs_domain}"
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: prism-ctf-challenge-gateway
+      namespace: prism-ctf-system
+      sectionName: tls
+  rules:
+    - backendRefs:
+        - name: prism-ctf-placeholder-tcp
+          kind: Service
+          namespace: prism-ctf-placeholders
+          port: 1337
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    prism-ctf.pwnlentoni.team/placeholder: http
+  name: placeholder-http
+  namespace: prism-ctf-placeholders
+spec:
+  hostnames:
+    - "*.${challs_domain}"
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: prism-ctf-challenge-gateway
+      namespace: prism-ctf-system
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: prism-ctf-placeholder-http
+          kind: Service
+          namespace: prism-ctf-placeholders
+          port: 8080
+      matches:
+        - path:
+            type: PathPrefix
+            value: /

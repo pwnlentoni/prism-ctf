@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: placeholder-tcp
+  namespace: prism-ctf-placeholders
+  labels:
+    prism-ctf.pwnlentoni.team/placeholder: tcp
+    app.kubernetes.io/name: prism-ctf
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  ports:
+    - port: 1337
+      protocol: TCP
+  selector:
+    prism-ctf.pwnlentoni.team/placeholder: tcp
+    app.kubernetes.io/name: prism-ctf-placeholder-tcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: placeholder-http
+  namespace: prism-ctf-placeholders
+  labels:
+    prism-ctf.pwnlentoni.team/placeholder: http
+    app.kubernetes.io/name: prism-ctf
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+  selector:
+    prism-ctf.pwnlentoni.team/placeholder: http
+    app.kubernetes.io/name: prism-ctf-placeholder-http

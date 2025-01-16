@@ -64,6 +64,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
+          - --challs-domain=${challs_domain}
         image: controller:latest
         name: manager
         securityContext:

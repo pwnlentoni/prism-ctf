@@ -18,19 +18,14 @@ package controller
 
 import (
 	"context"
+	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
+	"github.com/pwnlentoni/prism-ctf/internal/utils/reconcilers"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 )
-
-const finalizerName = "shared-challenges.prism-ctf.pwnlentoni.team/finalizer"
 
 // SharedChallengeReconciler reconciles a SharedChallenge object
 type SharedChallengeReconciler struct {
@@ -63,69 +58,39 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		} else {
 			l.Error(err, "couldn't get challenge spec")
 		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	if chal.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(chal, finalizerName) {
-			controllerutil.AddFinalizer(chal, finalizerName)
-			if err := r.Update(ctx, chal); err != nil {
-				l.Error(err, "finalizer add error")
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
-		}
-	} else {
-		l.Info("challenge spec deleted", "chall", chal.GetName())
-		if controllerutil.ContainsFinalizer(chal, finalizerName) {
-			if err := r.cleanupChallenge(ctx, chal); err != nil {
-				l.Error(err, "challenge cleanup failed")
-				return ctrl.Result{}, err
-			}
-
-			controllerutil.RemoveFinalizer(chal, finalizerName)
-			if err := r.Update(ctx, chal); err != nil {
-				l.Error(err, "finalizer remove failed")
-				return ctrl.Result{}, err
-			}
-		}
-		return ctrl.Result{}, nil
-	}
-
-	l.Info("challenge spec created/updated", "chall", chal.GetName())
-
-	doc, err := utils.RenderSharedTemplate(chal.Spec.Template, "challs.pwnlentoni.team")
-	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	objs, err := utils.GetObjectsFromTemplate(r.Client, ctx, doc)
+	namespace := utils.SharedChallengeNamespace(chal.GetName())
+
+	commonLabels := map[string]string{
+		utils.ManagedByLabel:    utils.ManagedByValue,
+		utils.ChallengeLabel:    chal.GetName(),
+		utils.GatewayAllowLabel: utils.GatewayAllowValue,
+	}
+
+	err := reconcilers.ReconcileNamespace(ctx, r.Client, namespace, commonLabels, chal)
 	if err != nil {
+		l.Error(err, "namespace reconcile failed")
 		return ctrl.Result{}, err
 	}
 
-	for _, obj := range objs {
-		err = r.Client.Create(ctx, &obj)
-		if err != nil {
-			if client.IgnoreAlreadyExists(err) != nil {
-				l.Error(err, "obj create error", "obj", obj)
-				return ctrl.Result{}, err
-			} else {
-				gotObj := unstructured.Unstructured{Object: make(map[string]interface{})}
-				gotObj.SetGroupVersionKind(obj.GroupVersionKind())
-				err = r.Client.Get(ctx, client.ObjectKeyFromObject(&obj), &gotObj)
-				if err != nil {
-					l.Error(err, "obj update get error", "obj", obj)
-					return ctrl.Result{}, err
-				}
-				obj.SetResourceVersion(gotObj.GetResourceVersion())
-				err = r.Client.Update(ctx, &obj)
-				if err != nil {
-					l.Error(err, "obj update error", "obj", obj)
-					return ctrl.Result{}, err
-				}
-			}
-		}
+	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, chal)
+	if err != nil {
+		l.Error(err, "network policy reconcile failed")
+		return ctrl.Result{}, err
+	}
+
+	err = reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared)
+	if err != nil {
+		l.Error(err, "containers reconcile failed")
+		return ctrl.Result{}, err
+	}
+
+	err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
+	if err != nil {
+		l.Error(err, "ingress reconcile failed")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -137,32 +102,4 @@ func (r *SharedChallengeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&prismctfv1.SharedChallenge{}).
 		Named("sharedchallenge").
 		Complete(r)
-}
-
-func (r *SharedChallengeReconciler) cleanupChallenge(ctx context.Context, chal *prismctfv1.SharedChallenge) error {
-	l := log.FromContext(ctx)
-	l.Info("cleaning up challenge", "chall", chal.GetName())
-	doc, err := utils.RenderSharedTemplate(chal.Spec.Template, "challs.pwnlentoni.team")
-	if err != nil {
-		return err
-	}
-
-	objs, err := utils.GetObjectsFromTemplate(r.Client, ctx, doc)
-	if err != nil {
-		return err
-	}
-
-	for _, obj := range objs {
-		err = r.Client.Delete(ctx, &obj)
-		if err != nil {
-			if client.IgnoreNotFound(err) == nil {
-				l.Info("deleting not found object", "name", obj.GetNamespace()+"/"+obj.GetName(), "kind", obj.GetKind())
-			} else {
-				l.Error(err, "object delete error", "name", obj.GetNamespace()+"/"+obj.GetName(), "kind", obj.GetKind())
-				return err
-			}
-		}
-	}
-
-	return nil
 }

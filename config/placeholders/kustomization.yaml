@@ -1,0 +1,14 @@
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: placeholder-http
+  newName: registry.gitlab.com/augustozanellato/test-container-registry/placeholder-http
+  newTag: latest
+- name: placeholder-tcp
+  newName: registry.gitlab.com/augustozanellato/test-container-registry/placeholder-tcp
+  newTag: latest
