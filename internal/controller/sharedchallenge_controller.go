@@ -21,10 +21,12 @@ import (
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"github.com/pwnlentoni/prism-ctf/internal/utils/reconcilers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"time"
 )
 
 // SharedChallengeReconciler reconciles a SharedChallenge object
@@ -36,6 +38,35 @@ type SharedChallengeReconciler struct {
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges/finalizers,verbs=update
+
+func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, chal *prismctfv1.SharedChallenge) (error, string) {
+	l := log.FromContext(ctx)
+
+	err := reconcilers.ReconcileNamespace(ctx, r.Client, namespace, commonLabels, chal)
+	if err != nil {
+		l.Error(err, "namespace reconcile failed")
+		return err, "NamespaceReconcileFailed"
+	}
+
+	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, chal)
+	if err != nil {
+		l.Error(err, "network policy reconcile failed")
+		return err, "NetworkPolicyReconcileFailed"
+	}
+
+	err = reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared)
+	if err != nil {
+		l.Error(err, "containers reconcile failed")
+		return err, "ContainersReconcileFailed"
+	}
+
+	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
+	if err != nil {
+		l.Error(err, "ingress reconcile failed")
+		return err, "IngressReconcileFailed"
+	}
+	return nil, "ReconcileSuccess"
+}
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -69,31 +100,26 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		utils.GatewayAllowLabel: utils.GatewayAllowValue,
 	}
 
-	err := reconcilers.ReconcileNamespace(ctx, r.Client, namespace, commonLabels, chal)
+	err, condition := r.internalReconcile(ctx, namespace, commonLabels, chal)
+	chal.Status.Conditions = []metav1.Condition{
+		{
+			Type:               "Ready",
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: chal.ObjectMeta.Generation,
+			Reason:             condition,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		},
+	}
 	if err != nil {
-		l.Error(err, "namespace reconcile failed")
-		return ctrl.Result{}, err
+		chal.Status.Conditions[0].Status = metav1.ConditionFalse
+		chal.Status.Conditions[0].Message = err.Error()
+	}
+	updErr := r.Status().Update(ctx, chal)
+	if updErr != nil {
+		l.Error(updErr, "failed to update status")
 	}
 
-	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, chal)
-	if err != nil {
-		l.Error(err, "network policy reconcile failed")
-		return ctrl.Result{}, err
-	}
-
-	err = reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared)
-	if err != nil {
-		l.Error(err, "containers reconcile failed")
-		return ctrl.Result{}, err
-	}
-
-	err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
-	if err != nil {
-		l.Error(err, "ingress reconcile failed")
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

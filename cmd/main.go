@@ -23,6 +23,7 @@ import (
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -182,13 +183,22 @@ func main() {
 		})
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cfg := ctrl.GetConfigOrDie()
+	cfg.QPS = 200
+	cfg.Burst = 300
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "12172a82.pwnlentoni.team",
+		Controller: config.Controller{
+			MaxConcurrentReconciles: 10,
+			GroupKindConcurrency: map[string]int{
+				"SharedChallenge." + prismctfv1.GroupVersion.Group: 2,
+			},
+		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

@@ -33,8 +33,12 @@ type SharedChallengeSpec struct {
 
 // SharedChallengeStatus defines the observed state of SharedChallenge.
 type SharedChallengeStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	ExposedUrls []ExposeStatus `json:"exposedUrls"`
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true

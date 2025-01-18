@@ -1,6 +1,7 @@
 package reconcilers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"slices"
 	"strings"
 )
 
@@ -42,8 +44,10 @@ func gatewayParentRefTcp() []gatewayv1.ParentReference {
 var pathMatchPathPrefix = gatewayv1.PathMatchPathPrefix
 var serviceKind = gatewayv1.Kind("Service")
 
-func ReconcileIngress(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, exposes []prismctfv1.ExposeSpec, challengeName, domain string) error {
+func ReconcileIngress(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, exposes []prismctfv1.ExposeSpec, challengeName, domain string) ([]prismctfv1.ExposeStatus, error) {
 	l := log.FromContext(ctx)
+
+	exposedUrls := make([]prismctfv1.ExposeStatus, 0, len(exposes))
 
 	httpRouteDeleter, err := utils.NewDeleter(ctx, c, &gatewayv1.HTTPRoute{}, namespace)
 	if err != nil {
@@ -66,6 +70,11 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 		}
 		exposeHost += domain
 
+		exposedUrls = append(exposedUrls, prismctfv1.ExposeStatus{
+			Hostname: exposeHost,
+			Protocol: expose.Protocol,
+		})
+
 		backendPort := gatewayv1.PortNumber(expose.Port)
 		backendNamespace := gatewayv1.Namespace(namespace)
 		backendRef := gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
@@ -76,7 +85,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 		},
 		}
 		switch expose.Protocol {
-		case "HTTP":
+		case prismctfv1.ExposeProtocolHTTP:
 			{
 				route := &gatewayv1.HTTPRoute{
 					ObjectMeta: meta,
@@ -108,11 +117,11 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 					return nil
 				})
 				if err != nil {
-					return fmt.Errorf("http route `%s`: %w", meta.Name, err)
+					return nil, fmt.Errorf("http route `%s`: %w", meta.Name, err)
 				}
 				l.Info("http route reconciled", "operation", op, "route", meta.Name)
 			}
-		case "TCP":
+		case prismctfv1.ExposeProtocolTCP:
 			{
 				route := &gatewayv1alpha2.TLSRoute{
 					ObjectMeta: meta,
@@ -136,13 +145,13 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 					return nil
 				})
 				if err != nil {
-					return fmt.Errorf("tcp route `%s`: %w", meta.Name, err)
+					return nil, fmt.Errorf("tcp route `%s`: %w", meta.Name, err)
 				}
 				l.Info("tcp route reconciled", "operation", op, "route", meta.Name)
 			}
-		case "UDP":
+		case prismctfv1.ExposeProtocolUDP:
 			{
-				return errors.New("UDP not yet supported") // TODO
+				return nil, errors.New("UDP not yet supported") // TODO
 			}
 		}
 	}
@@ -154,5 +163,8 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 	if err != nil {
 		l.Error(err, "failed to delete unused tls routes")
 	}
-	return nil
+	slices.SortFunc(exposedUrls, func(a, b prismctfv1.ExposeStatus) int {
+		return cmp.Compare(a.Hostname, b.Hostname)
+	})
+	return exposedUrls, nil
 }

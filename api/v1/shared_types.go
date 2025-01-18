@@ -21,13 +21,25 @@ type PortSpec struct {
 	Protocol corev1.Protocol `json:"proto"`
 }
 
+// +kubebuilder:validation:Enum=TCP;HTTP;UDP
+type ExposeProtocol string
+
+const (
+	ExposeProtocolTCP  ExposeProtocol = "TCP"
+	ExposeProtocolHTTP ExposeProtocol = "HTTP"
+	ExposeProtocolUDP  ExposeProtocol = "UDP"
+)
+
 type ExposeSpec struct {
 	Name      string `json:"name,omitempty"`
 	Container string `json:"container"`
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=65535
-	Port int `json:"port"`
-	// TODO: add UDP support
-	// +kubebuilder:validation:Enum=TCP;HTTP;UDP
-	Protocol string `json:"protocol"`
+	Port     int            `json:"port"`
+	Protocol ExposeProtocol `json:"protocol"`
+}
+
+type ExposeStatus struct {
+	Hostname string         `json:"hostname"`
+	Protocol ExposeProtocol `json:"protocol"`
 }
