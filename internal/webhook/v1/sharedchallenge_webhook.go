@@ -22,7 +22,6 @@ import (
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -35,7 +34,7 @@ var sharedchallengelog = logf.Log.WithName("sharedchallenge-resource")
 // SetupSharedChallengeWebhookWithManager registers the webhook for SharedChallenge in the manager.
 func SetupSharedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&prismctfv1.SharedChallenge{}).
-		WithValidator(&SharedChallengeCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&SharedChallengeCustomValidator{}).
 		Complete()
 }
 
@@ -52,7 +51,6 @@ func SetupSharedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type SharedChallengeCustomValidator struct {
-	Client client.Client
 }
 
 var _ webhook.CustomValidator = &SharedChallengeCustomValidator{}
