@@ -21,6 +21,7 @@ import (
 	"fmt"
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -56,16 +57,15 @@ type SharedChallengeCustomValidator struct {
 var _ webhook.CustomValidator = &SharedChallengeCustomValidator{}
 
 func (v *SharedChallengeCustomValidator) validate(chall *prismctfv1.SharedChallenge) (warnings admission.Warnings, err error) {
-	containers, err := validateContainers(chall.Spec.Containers)
+	containers, err := validateContainers(chall.Spec.Containers, field.NewPath("spec", "containers"))
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateExposures(containers, chall.Spec.Exposes)
+	err = validateExposures(containers, chall.Spec.Exposes, field.NewPath("spec", "exposes"))
 	if err != nil {
 		return nil, err
 	}
-
 	return nil, nil
 }
 
