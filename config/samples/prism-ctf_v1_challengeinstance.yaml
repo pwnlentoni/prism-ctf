@@ -1,0 +1,10 @@
+apiVersion: prism-ctf.pwnlentoni.team/v1
+kind: ChallengeInstance
+metadata:
+  labels:
+    app.kubernetes.io/name: prism-ctf
+    app.kubernetes.io/managed-by: kustomize
+  name: me-whoami-http
+spec:
+  team: me
+  challenge: whoami-iso-http

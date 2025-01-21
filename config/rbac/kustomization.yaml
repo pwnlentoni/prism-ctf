@@ -27,3 +27,10 @@ resources:
 - sharedchallenge_editor_role.yaml
 - sharedchallenge_viewer_role.yaml
 
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the {{ .ProjectName }} itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- challengeinstance_admin_role.yaml
+- challengeinstance_editor_role.yaml
+- challengeinstance_viewer_role.yaml

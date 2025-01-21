@@ -31,6 +31,7 @@ rules:
 - apiGroups:
   - prism-ctf.pwnlentoni.team
   resources:
+  - challengeinstances
   - sharedchallenges
   verbs:
   - create
@@ -43,14 +44,24 @@ rules:
 - apiGroups:
   - prism-ctf.pwnlentoni.team
   resources:
+  - challengeinstances/finalizers
   - sharedchallenges/finalizers
   verbs:
   - update
 - apiGroups:
   - prism-ctf.pwnlentoni.team
   resources:
+  - challengeinstances/status
   - sharedchallenges/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - prism-ctf.pwnlentoni.team
+  resources:
+  - isolatedchallenges
+  verbs:
+  - get
+  - list
+  - watch

@@ -124,6 +124,9 @@ var _ = BeforeSuite(func() {
 	err = SetupIsolatedChallengeWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupChallengeInstanceWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

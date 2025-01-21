@@ -204,7 +204,8 @@ func main() {
 		Controller: config.Controller{
 			MaxConcurrentReconciles: 10,
 			GroupKindConcurrency: map[string]int{
-				"SharedChallenge." + prismctfv1.GroupVersion.Group: 2,
+				"SharedChallenge." + prismctfv1.GroupVersion.Group:   2,
+				"ChallengeInstance." + prismctfv1.GroupVersion.Group: 8,
 			},
 		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
@@ -267,6 +268,21 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = webhookprismctfv1.SetupIsolatedChallengeWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "IsolatedChallenge")
+			os.Exit(1)
+		}
+	}
+	if err = (&controller.ChallengeInstanceReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("ChallengeInstanceController"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ChallengeInstance")
+		os.Exit(1)
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = webhookprismctfv1.SetupChallengeInstanceWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ChallengeInstance")
 			os.Exit(1)
 		}
 	}

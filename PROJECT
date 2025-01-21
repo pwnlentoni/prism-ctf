@@ -32,4 +32,16 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: pwnlentoni.team
+  group: prism-ctf
+  kind: ChallengeInstance
+  path: github.com/pwnlentoni/prism-ctf/api/v1
+  version: v1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
