@@ -21,8 +21,10 @@ import (
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"github.com/pwnlentoni/prism-ctf/internal/utils/reconcilers"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -32,12 +34,14 @@ import (
 // SharedChallengeReconciler reconciles a SharedChallenge object
 type SharedChallengeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, chal *prismctfv1.SharedChallenge) (error, string) {
 	l := log.FromContext(ctx)
@@ -91,6 +95,7 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{}, err
 	}
+	r.Recorder.Event(chal, corev1.EventTypeNormal, "ReconcileStart", "Challenge reconciliation started")
 
 	namespace := utils.SharedChallengeNamespace(chal.GetName())
 
@@ -109,6 +114,9 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if err != nil {
 		chal.Status.Conditions[0].Status = metav1.ConditionFalse
 		chal.Status.Conditions[0].Message = err.Error()
+		r.Recorder.Event(chal, corev1.EventTypeWarning, "ReconcileFailed", err.Error())
+	} else {
+		r.Recorder.Event(chal, corev1.EventTypeNormal, "Reconciled", "Reconciled successfully")
 	}
 	updErr := r.Status().Update(ctx, chal)
 	if updErr != nil {

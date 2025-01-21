@@ -241,8 +241,9 @@ func main() {
 	}
 
 	if err = (&controller.SharedChallengeReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("SharedChallengeController"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SharedChallenge")
 		os.Exit(1)
