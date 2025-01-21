@@ -67,6 +67,7 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 			}
 			deployment.Spec.Template.Spec.Tolerations = nodeType.Tolerations()
 			deployment.Spec.Template.Spec.Affinity = nodeType.Affinity()
+			deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = proto.Int64(1)
 			return nil
 		})
 		if err != nil {
