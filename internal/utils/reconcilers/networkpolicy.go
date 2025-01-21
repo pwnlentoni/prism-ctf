@@ -110,7 +110,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 				MatchLabels: map[string]string{
 					"k8s." + utils.EgressEnabledLabel: utils.EgressEnabledValue,
 				}}}).WithEgressRules([]ciliumapi.EgressRule{
-			{ // allow egress to other challenge containers
+			{ // allow egress to everything except private IPs
 				EgressCommonRule: ciliumapi.EgressCommonRule{
 					ToCIDRSet: []ciliumapi.CIDRRule{
 						{

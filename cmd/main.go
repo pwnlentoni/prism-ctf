@@ -189,8 +189,11 @@ func main() {
 	}
 
 	cfg := ctrl.GetConfigOrDie()
+
+	// 10x defaults because we allow for 10 concurrent reconciles
 	cfg.QPS = 200
 	cfg.Burst = 300
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
