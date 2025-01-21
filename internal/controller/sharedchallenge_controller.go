@@ -94,11 +94,7 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	namespace := utils.SharedChallengeNamespace(chal.GetName())
 
-	commonLabels := map[string]string{
-		utils.ManagedByLabel:    utils.ManagedByValue,
-		utils.ChallengeLabel:    chal.GetName(),
-		utils.GatewayAllowLabel: utils.GatewayAllowValue,
-	}
+	commonLabels := utils.MakeCommonLabels(chal.GetName())
 
 	err, condition := r.internalReconcile(ctx, namespace, commonLabels, chal)
 	chal.Status.Conditions = []metav1.Condition{
