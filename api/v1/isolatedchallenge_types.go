@@ -34,7 +34,6 @@ type IsolatedChallengeSpec struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=date-time
 	AvailableAt *metav1.Time `json:"available_at,omitempty"`
-	// +optional
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=duration
 	Lifetime *metav1.Duration `json:"lifetime,omitempty"`

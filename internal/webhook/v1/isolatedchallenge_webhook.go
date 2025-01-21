@@ -18,8 +18,8 @@ package v1
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,20 +68,16 @@ func (v *IsolatedChallengeCustomValidator) validate(chal *prismctfv1.IsolatedCha
 		}
 	}()
 	spec := chal.Spec
-	if spec.Lifetime == nil {
-		err = errors.New("missing lifetime")
-		return
-	}
 	if spec.Lifetime.Duration < 5*time.Minute {
 		warnings = append(warnings, "lifetime under suggested 5 minutes")
 	}
 
-	constainers, err := validateContainers(chal.Spec.Containers)
+	containers, err := validateContainers(chal.Spec.Containers, field.NewPath("spec", "containers"))
 	if err != nil {
 		return
 	}
 
-	err = validateExposures(constainers, chal.Spec.Exposes)
+	err = validateExposures(containers, chal.Spec.Exposes, field.NewPath("spec", "exposes"))
 	if err != nil {
 		return
 	}
