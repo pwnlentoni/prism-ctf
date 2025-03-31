@@ -29,6 +29,7 @@ type SharedChallengeSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	Containers []ContainerSpec `json:"containers"`
 	Exposes    []ExposeSpec    `json:"exposes"`
+	Flag       *string         `json:"flag,omitempty"`
 }
 
 // SharedChallengeStatus defines the observed state of SharedChallenge.

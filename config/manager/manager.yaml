@@ -63,6 +63,8 @@ spec:
           - --leader-elect
           - --health-probe-bind-address=:8081
           - --challs-domain=${challs_domain}
+          - --nodeport-mode=${nodeport_mode}
+          - --use-affinity=${use_affinity}
         image: controller:latest
         name: manager
         ports: []

@@ -4,6 +4,7 @@ metadata:
   name: whoami-iso-tcp
 spec:
   lifetime: 10m
+  flag_template: "flag{w0w_5uch_r4nd0mn3ss_{{ random 8 }}}"
   containers:
     - ports:
         - port: 8080

@@ -4,6 +4,7 @@ metadata:
   name: whoami-iso-http
 spec:
   lifetime: 10m
+  flag_template: "flag{th1s_1s_s0_r4nd0m_{{ random 8 }}}"
   containers:
     - ports:
         - port: 80
@@ -35,14 +36,20 @@ spec:
           requests:
             cpu: 10m
             memory: 32Mi
+        env:
+          - name: FLAG
+            valueFrom:
+              configMapKeyRef:
+                key: flag
+                name: flag
         command:
           - socaz
           - --bind
           - "1337"
           - -e
           - -v
-          - -F
-          - flag{TEST_[random 8]}
+          - --flag-from-env
+          - FLAG
           - -c
           - sh
     - ports:

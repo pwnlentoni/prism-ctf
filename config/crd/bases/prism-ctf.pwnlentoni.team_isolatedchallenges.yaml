@@ -1525,6 +1525,8 @@ spec:
                   - protocol
                   type: object
                 type: array
+              flag_template:
+                type: string
               lifetime:
                 format: duration
                 type: string

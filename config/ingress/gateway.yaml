@@ -23,7 +23,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: wildcard-challs-tls
-            namespace: ingress-traefik
+            namespace: traefik
 
       allowedRoutes:
         namespaces:
@@ -40,7 +40,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: wildcard-challs-tls
-            namespace: ingress-traefik
+            namespace: traefik
 
       allowedRoutes:
         namespaces:
@@ -48,17 +48,3 @@ spec:
           selector:
             matchLabels:
               prism-ctf.pwnlentoni.team/allow-gateway-routes: "true"
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-wildcard-cert-access
-  namespace: ingress-traefik
-spec:
-  from:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      namespace: prism-ctf-system
-  to:
-    - group: ""
-      kind: Secret

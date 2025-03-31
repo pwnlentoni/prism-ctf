@@ -40,6 +40,8 @@ type ExposeSpec struct {
 }
 
 type ExposeStatus struct {
+	Name     string         `json:"name,omitempty"`
 	Hostname string         `json:"hostname"`
 	Protocol ExposeProtocol `json:"protocol"`
+	Port     int            `json:"port,omitempty"`
 }

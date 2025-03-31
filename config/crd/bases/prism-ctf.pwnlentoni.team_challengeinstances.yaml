@@ -48,6 +48,12 @@ spec:
               expiration:
                 format: date-time
                 type: string
+              flag:
+                maxLength: 512
+                type: string
+                x-kubernetes-validations:
+                - message: Flag is immutable
+                  rule: self == oldSelf
               random_id:
                 maxLength: 512
                 type: string
@@ -67,6 +73,8 @@ spec:
             x-kubernetes-validations:
             - message: Random id is required once set
               rule: '!has(oldSelf.random_id) || has(self.random_id)'
+            - message: Flag is required once set
+              rule: '!has(oldSelf.flag) || has(self.flag)'
           status:
             description: ChallengeInstanceStatus defines the observed state of ChallengeInstance.
             properties:
@@ -134,6 +142,10 @@ spec:
                   properties:
                     hostname:
                       type: string
+                    name:
+                      type: string
+                    port:
+                      type: integer
                     protocol:
                       enum:
                       - TCP
@@ -149,6 +161,9 @@ spec:
             - exposedUrls
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.team
+    - jsonPath: .spec.challenge
     served: true
     storage: true
     subresources:

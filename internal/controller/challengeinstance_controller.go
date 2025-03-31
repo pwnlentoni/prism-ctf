@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"github.com/pwnlentoni/prism-ctf/internal/utils/reconcilers"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -56,13 +57,19 @@ func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, nam
 		return err, "NetworkPolicyReconcileFailed"
 	}
 
-	err = reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Containers, utils.NodeTypeIsolated)
+	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, instance, &instance.Spec.Flag)
+	if err != nil {
+		l.Error(err, "configmap reconcile failed")
+		return err, "ConfigMapReconcileFailed"
+	}
+
+	statusMap, err := reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Containers, utils.NodeTypeIsolated, &instance.Spec.Flag)
 	if err != nil {
 		l.Error(err, "containers reconcile failed")
 		return err, "ContainersReconcileFailed"
 	}
 
-	instance.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Exposes, chal.Name, "-"+instance.Spec.RandomId+utils.DomainSuffix())
+	instance.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Exposes, chal.Name, "-"+instance.Spec.RandomId+utils.DomainSuffix(), statusMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
 		return err, "IngressReconcileFailed"
@@ -116,7 +123,7 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	r.Recorder.Event(instance, corev1.EventTypeNormal, "ReconcileStart", "Challenge reconciliation started")
 
-	namespace := utils.IsolatedChallengeNamespace(chal.GetName(), instance.Spec.Team)
+	namespace := utils.IsolatedChallengeNamespace(chal.GetName(), instance.Spec.Team, instance.Spec.RandomId)
 
 	commonLabels := utils.MapMerge(utils.MakeCommonLabels(chal.GetName()), utils.MakeInstancedLabels(instance.Spec.Team))
 
@@ -151,6 +158,7 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&prismctfv1.ChallengeInstance{}).
+		Owns(&appsv1.Deployment{}).
 		Named("challengeinstance").
 		Complete(r)
 }

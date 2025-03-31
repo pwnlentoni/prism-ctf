@@ -1,4 +1,5 @@
 FROM joseluisq/static-web-server:2-debian
+LABEL org.opencontainers.image.source=https://github.com/pwnlentoni/prism-ctf
 COPY placeholders/http/ /public/
 USER 65532:65532
-CMD ["static-web-server", "--root=/public", "--log-level=info", "--health", "--port=8080"]
+CMD ["static-web-server", "--root=/public", "--log-level=info", "--health", "--port=8080", "-e=false", "--page404=./index.html"]

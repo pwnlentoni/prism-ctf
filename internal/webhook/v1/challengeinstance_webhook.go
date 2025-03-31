@@ -86,7 +86,7 @@ func (d *ChallengeInstanceCustomDefaulter) Default(ctx context.Context, obj runt
 
 	rid := make([]byte, *utils.RandomTokenLength)
 	_, err := rand.Read(rid)
-	if err != nil {
+	if err != nil { // should be impossible per doc
 		challengeinstancelog.Error(err, "failed to generate instance id")
 		return errors.New("failed to generate random id")
 	}
@@ -99,11 +99,19 @@ func (d *ChallengeInstanceCustomDefaulter) Default(ctx context.Context, obj runt
 			return field.NotFound(field.NewPath("spec", "challenge"), i.Spec.Challenge)
 		} else {
 			challengeinstancelog.Error(err, "error while getting challenge template")
-			return errors.New("failed to get challenge")
+			return errors.New("failed to get challenge template")
 		}
 	}
 	i.Spec.Expiration = &metav1.Time{Time: time.Now().Add(tpl.Spec.Lifetime.Duration)}
 
+	if len(i.Spec.Flag) != 0 {
+		return errors.New("flag already set on new instance")
+	}
+	i.Spec.Flag, err = utils.TemplateFlag(tpl.Spec.FlagTemplate)
+	if err != nil {
+		challengeinstancelog.Error(err, "failed to template flag")
+		return errors.New("flag generation failed")
+	}
 	return nil
 }
 

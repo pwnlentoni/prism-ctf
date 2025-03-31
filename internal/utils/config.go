@@ -16,8 +16,14 @@ func DomainSuffix() string {
 	return domainSuffix
 }
 
+func ChallengesDomain() string {
+	return *challengesDomain
+}
+
 var MaxInstancesPerTeam = flag.Int("max-team-instances", 4, "Max instances per team. Set to 0 to disable limit.")
 var RandomTokenLength = flag.Int("random-token-len", 4, "Random token length.")
+var NodePortMode = flag.Bool("nodeport-mode", false, "Expose challenges via a NodePort instead of TLS.")
+var UseAffinity = flag.Bool("use-affinity", true, "Use node affinity for challenges")
 
 func ValidateConfig(l logr.Logger) error {
 	if *MaxInstancesPerTeam < 0 {

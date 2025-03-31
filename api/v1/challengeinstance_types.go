@@ -25,6 +25,7 @@ import (
 
 // ChallengeInstanceSpec defines the desired state of ChallengeInstance.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.random_id) || has(self.random_id)", message="Random id is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.flag) || has(self.flag)", message="Flag is required once set"
 type ChallengeInstanceSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Team is immutable"
@@ -42,6 +43,10 @@ type ChallengeInstanceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Random id is immutable"
 	// +kubebuilder:validation:MaxLength=512
 	RandomId string `json:"random_id"`
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Flag is immutable"
+	// +kubebuilder:validation:MaxLength=512
+	Flag string `json:"flag"`
 }
 
 // ChallengeInstanceStatus defines the observed state of ChallengeInstance.
@@ -57,6 +62,8 @@ type ChallengeInstanceStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:selectablefield:JSONPath=`.spec.team`
+// +kubebuilder:selectablefield:JSONPath=`.spec.challenge`
 
 // ChallengeInstance is the Schema for the challengeinstances API.
 type ChallengeInstance struct {

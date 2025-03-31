@@ -37,6 +37,8 @@ type IsolatedChallengeSpec struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=duration
 	Lifetime *metav1.Duration `json:"lifetime,omitempty"`
+	// +kubebuilder:validation:Type=string
+	FlagTemplate string `json:"flag_template,omitempty"`
 }
 
 // IsolatedChallengeStatus defines the observed state of IsolatedChallenge.

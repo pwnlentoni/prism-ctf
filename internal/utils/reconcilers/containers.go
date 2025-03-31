@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func ReconcileContainers(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, containers []prismctfv1.ContainerSpec, nodeType utils.NodeType) error {
+func ReconcileContainers(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, containers []prismctfv1.ContainerSpec, nodeType utils.NodeType, flag *string) (map[string]bool, error) {
 	l := log.FromContext(ctx)
 
 	deploymentDeleter, err := utils.NewDeleter(ctx, c, &appsv1.Deployment{}, namespace)
@@ -26,6 +26,8 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 	if err != nil {
 		l.Error(err, "service deleter error")
 	}
+
+	statusMap := make(map[string]bool, len(containers))
 
 	for _, container := range containers {
 		deployment := &appsv1.Deployment{
@@ -65,16 +67,42 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{
 				*container.Spec,
 			}
-			deployment.Spec.Template.Spec.Tolerations = nodeType.Tolerations()
-			deployment.Spec.Template.Spec.Affinity = nodeType.Affinity()
+			if flag != nil {
+				deployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+					{
+						Name: "flag",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "flag"},
+								Items: []corev1.KeyToPath{
+									{
+										Key:  "flag_lf",
+										Path: "flag",
+									},
+								},
+							},
+						},
+					},
+				}
+			} else {
+				deployment.Spec.Template.Spec.Volumes = nil
+			}
+			if *utils.UseAffinity {
+				deployment.Spec.Template.Spec.Tolerations = nodeType.Tolerations()
+				deployment.Spec.Template.Spec.Affinity = nodeType.Affinity()
+			} else {
+				deployment.Spec.Template.Spec.Tolerations = nil
+				deployment.Spec.Template.Spec.Affinity = nil
+			}
 			deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = proto.Int64(1)
 			return nil
 		})
 		if err != nil {
 			l.Error(err, "deployment reconcile error", "deployment", container.Spec.Name)
-			return fmt.Errorf("deployment reconcile `%s`: %w", container.Spec.Name, err)
+			return nil, fmt.Errorf("deployment reconcile `%s`: %w", container.Spec.Name, err)
 		}
 		l.Info("deployment reconciled", "operation", op, "deployment", container.Spec.Name)
+		statusMap[container.Spec.Name] = deployment.Status.ReadyReplicas != 0
 
 		svc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -89,6 +117,11 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 				if err != nil {
 					l.Error(err, "failed to set controller reference on service")
 				}
+			}
+			if *utils.NodePortMode {
+				svc.Spec.Type = corev1.ServiceTypeNodePort
+			} else {
+				svc.Spec.Type = corev1.ServiceTypeClusterIP
 			}
 			svc.Labels = commonLabels
 			if svc.ObjectMeta.CreationTimestamp.IsZero() {
@@ -107,7 +140,7 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 		})
 		if err != nil {
 			l.Error(err, "service reconcile error", "service", container.Spec.Name)
-			return fmt.Errorf("service reconcile `%s`: %w", container.Spec.Name, err)
+			return nil, fmt.Errorf("service reconcile `%s`: %w", container.Spec.Name, err)
 		}
 		l.Info("service reconciled", "operation", op, "service", container.Spec.Name)
 	}
@@ -121,5 +154,5 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 		l.Error(err, "failed to delete unused deployments")
 	}
 
-	return nil
+	return statusMap, nil
 }

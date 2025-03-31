@@ -21,6 +21,7 @@ import (
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"github.com/pwnlentoni/prism-ctf/internal/utils/reconcilers"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,13 +59,19 @@ func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, names
 		return err, "NetworkPolicyReconcileFailed"
 	}
 
-	err = reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared)
+	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Flag)
+	if err != nil {
+		l.Error(err, "configmap reconcile failed")
+		return err, "ConfigMapReconcileFailed"
+	}
+
+	statusMap, err := reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared, chal.Spec.Flag)
 	if err != nil {
 		l.Error(err, "containers reconcile failed")
 		return err, "ContainersReconcileFailed"
 	}
 
-	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
+	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix(), statusMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
 		return err, "IngressReconcileFailed"
@@ -130,6 +137,7 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SharedChallengeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&prismctfv1.SharedChallenge{}).
+		Owns(&appsv1.Deployment{}).
 		Named("sharedchallenge").
 		Complete(r)
 }

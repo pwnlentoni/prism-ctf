@@ -1525,6 +1525,8 @@ spec:
                   - protocol
                   type: object
                 type: array
+              flag:
+                type: string
             required:
             - containers
             - exposes
@@ -1596,6 +1598,10 @@ spec:
                   properties:
                     hostname:
                       type: string
+                    name:
+                      type: string
+                    port:
+                      type: integer
                     protocol:
                       enum:
                       - TCP

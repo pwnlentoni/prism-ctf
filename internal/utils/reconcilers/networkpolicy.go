@@ -34,7 +34,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 				l.Error(err, "failed to set controller reference on isolate policy")
 			}
 		}
-		isolatePolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.WildcardEndpointSelector).WithIngressRules([]ciliumapi.IngressRule{
+		ingressRules := []ciliumapi.IngressRule{
 			{ // allow ingress from other challenge containers
 				IngressCommonRule: ciliumapi.IngressCommonRule{FromEndpoints: []ciliumapi.EndpointSelector{
 					{
@@ -44,18 +44,30 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 					},
 				}},
 			},
-			{ // allow ingress from traefik
+		}
+		// These two rules require that the cluster isn't pwned, specifically:
+		// 	- attackers can't create NodePort services
+		// 	- attackers can't edit traefik config
+		if *utils.NodePortMode {
+			ingressRules = append(ingressRules, ciliumapi.IngressRule{ // allow ingress from world
+				IngressCommonRule: ciliumapi.IngressCommonRule{FromEntities: []ciliumapi.Entity{
+					ciliumapi.EntityWorld,
+				}},
+			})
+		} else {
+			ingressRules = append(ingressRules, ciliumapi.IngressRule{ // allow ingress from traefik
 				IngressCommonRule: ciliumapi.IngressCommonRule{FromEndpoints: []ciliumapi.EndpointSelector{
 					{
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"k8s.io.kubernetes.pod.namespace": "ingress-traefik",
+								"k8s.io.kubernetes.pod.namespace": "traefik",
 							},
 						},
 					},
 				}},
-			},
-		}).WithEgressRules([]ciliumapi.EgressRule{
+			})
+		}
+		isolatePolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.WildcardEndpointSelector).WithIngressRules(ingressRules).WithEgressRules([]ciliumapi.EgressRule{
 			{ // allow egress to other challenge containers
 				EgressCommonRule: ciliumapi.EgressCommonRule{ToEndpoints: []ciliumapi.EndpointSelector{
 					{
