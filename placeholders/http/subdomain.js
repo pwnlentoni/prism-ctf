@@ -5,7 +5,13 @@ const parser = new DOMParser();
 
 function checkChallengeReady() {
 	const host = window.location.origin;
-	fetch(host)
+	fetch(host, {
+		headers: {
+			"Cache-Control": "no-cache",
+			"pragma": "no-cache",
+		},
+		cache: "reload",
+	})
 		.then(res => {
 			if (res.status === 200) {
 				// Parse response text
