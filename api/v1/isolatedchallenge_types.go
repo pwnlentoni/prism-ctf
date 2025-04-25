@@ -24,6 +24,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // IsolatedChallengeSpec defines the desired state of IsolatedChallenge.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.flag_regex) || has(self.flag_regex)", message="Flag regex is required once set"
 type IsolatedChallengeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -38,7 +39,12 @@ type IsolatedChallengeSpec struct {
 	// +kubebuilder:validation:Format=duration
 	Lifetime *metav1.Duration `json:"lifetime,omitempty"`
 	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Flag is immutable"
 	FlagTemplate string `json:"flag_template,omitempty"`
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Flag regex is immutable"
+	// +kubebuilder:validation:MaxLength=512
+	FlagRegex string `json:"flag_regex,omitempty"`
 }
 
 // IsolatedChallengeStatus defines the observed state of IsolatedChallenge.

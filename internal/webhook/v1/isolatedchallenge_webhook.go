@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"time"
 
@@ -39,10 +40,46 @@ var isolatedchallengelog = logf.Log.WithName("isolatedchallenge-resource")
 func SetupIsolatedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&prismctfv1.IsolatedChallenge{}).
 		WithValidator(&IsolatedChallengeCustomValidator{}).
+		WithDefaulter(&IsolatedChallengeCustomDefaulter{}).
 		Complete()
 }
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+
+// +kubebuilder:webhook:path=/mutate-prism-ctf-pwnlentoni-team-v1-isolatedchallenge,mutating=true,failurePolicy=fail,sideEffects=None,groups=prism-ctf.pwnlentoni.team,resources=isolatedchallenges,verbs=create;update,versions=v1,name=misolatedchallenge-v1.kb.io,admissionReviewVersions=v1
+
+// IsolatedChallengeCustomDefaulter struct is responsible for setting default values on the custom resource of the
+// Kind IsolatedChallenge when those are created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type IsolatedChallengeCustomDefaulter struct{}
+
+var _ webhook.CustomDefaulter = &IsolatedChallengeCustomDefaulter{}
+
+// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind IsolatedChallenge.
+func (d *IsolatedChallengeCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	chall, ok := obj.(*prismctfv1.IsolatedChallenge)
+
+	if !ok {
+		return fmt.Errorf("expected an IsolatedChallenge object but got %T", obj)
+	}
+	isolatedchallengelog.Info("Defaulting for IsolatedChallenge", "name", chall.GetName())
+
+	if len(chall.Spec.FlagRegex) != 0 {
+		return field.Invalid(field.NewPath("spec", "flag_regex"), chall.Spec.FlagRegex, "flag regex can't be specified at challenge creation")
+	}
+
+	var err error
+
+	chall.Spec.FlagRegex, err = utils.FlagRegex(chall.Spec.FlagTemplate)
+
+	if err != nil {
+		return field.Invalid(field.NewPath("spec", "flag_template"), chall.Spec.FlagRegex, err.Error())
+	}
+
+	return nil
+}
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
@@ -54,9 +91,7 @@ func SetupIsolatedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type IsolatedChallengeCustomValidator struct {
-	//TODO(user): Add more fields as needed for validation
-}
+type IsolatedChallengeCustomValidator struct{}
 
 var _ webhook.CustomValidator = &IsolatedChallengeCustomValidator{}
 

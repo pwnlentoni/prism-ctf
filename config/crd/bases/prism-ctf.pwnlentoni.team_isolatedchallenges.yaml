@@ -1525,8 +1525,17 @@ spec:
                   - protocol
                   type: object
                 type: array
+              flag_regex:
+                maxLength: 512
+                type: string
+                x-kubernetes-validations:
+                - message: Flag regex is immutable
+                  rule: self == oldSelf
               flag_template:
                 type: string
+                x-kubernetes-validations:
+                - message: Flag is immutable
+                  rule: self == oldSelf
               lifetime:
                 format: duration
                 type: string
@@ -1534,6 +1543,9 @@ spec:
             - containers
             - exposes
             type: object
+            x-kubernetes-validations:
+            - message: Flag regex is required once set
+              rule: '!has(oldSelf.flag_regex) || has(self.flag_regex)'
           status:
             description: IsolatedChallengeStatus defines the observed state of IsolatedChallenge.
             type: object
