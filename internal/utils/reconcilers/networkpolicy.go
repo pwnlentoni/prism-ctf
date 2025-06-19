@@ -75,11 +75,19 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 							MatchLabels: maps.Clone(prefixedLabels),
 						},
 					},
+				}},
+			},
+			{
+				EgressCommonRule: ciliumapi.EgressCommonRule{ToEndpoints: []ciliumapi.EndpointSelector{
 					{ // allow egress to explicitly marked pods
 						LabelSelector: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-								utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
+							MatchLabels: map[string]string{
+								"k8s." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
 							},
+							MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
+								Key:      "k8s.io.kubernetes.pod.namespace",
+								Operator: slim_metav1.LabelSelectorOpExists,
+							}},
 						},
 					},
 				}},
