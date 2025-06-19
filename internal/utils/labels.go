@@ -13,6 +13,10 @@ const (
 	GatewayAllowLabel  = "prism-ctf.pwnlentoni.team/allow-gateway-routes"
 	GatewayAllowValue  = "true"
 	ChallengeTeamLabel = "prism-ctf.pwnlentoni.team/team"
+
+	// AccessibleByChallengesLabel is used to mark namespaces not managed by prism-ctf that should be accessible to challenges
+	AccessibleByChallengesLabel = "prism-ctf.pwnlentoni.team/accessible-by-challenges"
+	AccessibleByChallengesValue = "true"
 )
 
 func MakeCommonLabels(challengeName string) map[string]string {

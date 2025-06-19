@@ -68,11 +68,18 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 			})
 		}
 		isolatePolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.WildcardEndpointSelector).WithIngressRules(ingressRules).WithEgressRules([]ciliumapi.EgressRule{
-			{ // allow egress to other challenge containers
+			{
 				EgressCommonRule: ciliumapi.EgressCommonRule{ToEndpoints: []ciliumapi.EndpointSelector{
-					{
+					{ // allow egress to other challenge containers
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: maps.Clone(prefixedLabels),
+						},
+					},
+					{ // allow egress to explicitly marked namespaces
+						LabelSelector: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+								"io.kubernetes.pod.namespace.labels." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
+							},
 						},
 					},
 				}},
