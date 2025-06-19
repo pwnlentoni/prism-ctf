@@ -24,7 +24,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,9 +159,38 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(context.Background(), &prismctfv1.ChallengeInstance{}, ".spec.challenge", func(object client.Object) []string {
+		i := object.(*prismctfv1.ChallengeInstance)
+		return []string{i.Spec.Challenge}
+	})
+	if err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&prismctfv1.ChallengeInstance{}).
-		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.Deployment{}). // trigger reconciles on deployment status update
+		Watches(&prismctfv1.IsolatedChallenge{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			l := log.FromContext(ctx)
+			instancesList := &prismctfv1.ChallengeInstanceList{}
+			err := mgr.GetClient().List(ctx, instancesList, client.MatchingFields{".spec.challenge": object.GetName()})
+			if err != nil {
+				l.Error(err, "failed to list challenge instances")
+				return nil
+			}
+
+			l.Info("triggering instances reconcile due to spec update", "challenge", object.GetName(), "instance_count", len(instancesList.Items))
+			reconciles := make([]reconcile.Request, 0, len(instancesList.Items))
+			for _, instance := range instancesList.Items {
+				reconciles = append(reconciles, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: instance.Namespace,
+						Name:      instance.Name,
+					},
+				})
+			}
+
+			return reconciles
+		})). // trigger reconciles on challenge spec update
 		Named("challengeinstance").
 		Complete(r)
 }
