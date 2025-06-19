@@ -66,17 +66,17 @@ func (d *IsolatedChallengeCustomDefaulter) Default(ctx context.Context, obj runt
 	}
 	isolatedchallengelog.Info("Defaulting for IsolatedChallenge", "name", chall.GetName())
 
-	if len(chall.Spec.FlagRegex) != 0 {
-		return field.Invalid(field.NewPath("spec", "flag_regex"), chall.Spec.FlagRegex, "flag regex can't be specified at challenge creation")
-	}
-
-	var err error
-
-	chall.Spec.FlagRegex, err = utils.FlagRegex(chall.Spec.FlagTemplate)
+	flagRegex, err := utils.FlagRegex(chall.Spec.FlagTemplate)
 
 	if err != nil {
 		return field.Invalid(field.NewPath("spec", "flag_template"), chall.Spec.FlagRegex, err.Error())
 	}
+
+	if len(chall.Spec.FlagRegex) != 0 && flagRegex != chall.Spec.FlagRegex {
+		return field.Invalid(field.NewPath("spec", "flag_regex"), chall.Spec.FlagRegex, "flag regex can't be specified at challenge creation")
+	}
+
+	chall.Spec.FlagRegex = flagRegex
 
 	return nil
 }
