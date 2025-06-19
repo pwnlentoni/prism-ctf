@@ -14,7 +14,7 @@ const (
 	GatewayAllowValue  = "true"
 	ChallengeTeamLabel = "prism-ctf.pwnlentoni.team/team"
 
-	// AccessibleByChallengesLabel is used to mark namespaces not managed by prism-ctf that should be accessible to challenges
+	// AccessibleByChallengesLabel is used to mark pods not managed by prism-ctf that should be accessible to challenges
 	AccessibleByChallengesLabel = "prism-ctf.pwnlentoni.team/accessible-by-challenges"
 	AccessibleByChallengesValue = "true"
 )

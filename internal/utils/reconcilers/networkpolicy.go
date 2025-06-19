@@ -75,10 +75,10 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 							MatchLabels: maps.Clone(prefixedLabels),
 						},
 					},
-					{ // allow egress to explicitly marked namespaces
+					{ // allow egress to explicitly marked pods
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]slim_metav1.MatchLabelsValue{
-								"io.kubernetes.pod.namespace.labels." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
+								utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
 							},
 						},
 					},
