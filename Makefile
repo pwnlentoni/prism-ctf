@@ -145,7 +145,7 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${TCPIMG} -f Dockerfile.tcp.cross .
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${HTTPIMG} -f Dockerfile.http .
 	- $(CONTAINER_TOOL) buildx rm prism-ctf-builder
-	rm Dockerfile.cross
+	rm Dockerfile.cross Dockerfile.tcp.cross
 
 .PHONY: build-installer
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
