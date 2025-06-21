@@ -60,7 +60,9 @@ func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, nam
 		return err, "NetworkPolicyReconcileFailed"
 	}
 
-	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, instance, &instance.Spec.Flag)
+	exposeMap := reconcilers.ExposeDomainMap(chal.Spec.Exposes, chal.Name, "-"+instance.Spec.RandomId+utils.DomainSuffix())
+
+	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, instance, &instance.Spec.Flag, exposeMap)
 	if err != nil {
 		l.Error(err, "configmap reconcile failed")
 		return err, "ConfigMapReconcileFailed"
@@ -72,7 +74,7 @@ func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, nam
 		return err, "ContainersReconcileFailed"
 	}
 
-	instance.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Exposes, chal.Name, "-"+instance.Spec.RandomId+utils.DomainSuffix(), statusMap)
+	instance.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Exposes, statusMap, exposeMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
 		return err, "IngressReconcileFailed"
@@ -175,6 +177,10 @@ func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			err := mgr.GetClient().List(ctx, instancesList, client.MatchingFields{".spec.challenge": object.GetName()})
 			if err != nil {
 				l.Error(err, "failed to list challenge instances")
+				return nil
+			}
+
+			if len(instancesList.Items) == 0 {
 				return nil
 			}
 

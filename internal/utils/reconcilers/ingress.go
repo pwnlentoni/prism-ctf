@@ -47,7 +47,28 @@ var pathMatchPathPrefix = gatewayv1.PathMatchPathPrefix
 var serviceKind = gatewayv1.Kind("Service")
 var portNotFound = errors.New("port not found in service")
 
-func ReconcileIngress(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, exposes []prismctfv1.ExposeSpec, challengeName, domain string, statusMap map[string]bool) ([]prismctfv1.ExposeStatus, error) {
+func ExposeDomainMap(exposes []prismctfv1.ExposeSpec, challengeName, domain string) map[string]string {
+	out := map[string]string{}
+
+	for _, expose := range exposes {
+		if *utils.NodePortMode {
+			out[expose.Name] = utils.ChallengesDomain()
+		} else {
+
+			exposeHost := challengeName
+			if len(expose.Name) != 0 {
+				exposeHost += "-" + expose.Name
+			}
+			exposeHost += domain
+
+			out[expose.Name] = exposeHost
+		}
+
+	}
+	return out
+}
+
+func ReconcileIngress(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, exposes []prismctfv1.ExposeSpec, statusMap map[string]bool, exposeMap map[string]string) ([]prismctfv1.ExposeStatus, error) {
 	l := log.FromContext(ctx)
 
 	exposedUrls := make([]prismctfv1.ExposeStatus, 0, len(exposes))
@@ -81,7 +102,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 			}
 			exposedUrls = append(exposedUrls, prismctfv1.ExposeStatus{
 				Name:     expose.Name,
-				Hostname: utils.ChallengesDomain(),
+				Hostname: exposeMap[expose.Name],
 				Protocol: expose.Protocol,
 				Port:     int(svc.Spec.Ports[pIdx].NodePort),
 			})
@@ -90,11 +111,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 				Name:      strings.ToLower(fmt.Sprintf("%s-%s-%d", expose.Container, expose.Protocol, expose.Port)),
 				Namespace: namespace,
 			}
-			exposeHost := challengeName
-			if len(expose.Name) != 0 {
-				exposeHost += "-" + expose.Name
-			}
-			exposeHost += domain
+			exposeHost := exposeMap[expose.Name]
 			exposedUrls = append(exposedUrls, prismctfv1.ExposeStatus{
 				Name:     expose.Name,
 				Hostname: exposeHost,

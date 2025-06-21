@@ -59,7 +59,9 @@ func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, names
 		return err, "NetworkPolicyReconcileFailed"
 	}
 
-	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Flag)
+	exposeMap := reconcilers.ExposeDomainMap(chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
+
+	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Flag, exposeMap)
 	if err != nil {
 		l.Error(err, "configmap reconcile failed")
 		return err, "ConfigMapReconcileFailed"
@@ -71,7 +73,7 @@ func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, names
 		return err, "ContainersReconcileFailed"
 	}
 
-	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, chal.Name, utils.DomainSuffix(), statusMap)
+	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, statusMap, exposeMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
 		return err, "IngressReconcileFailed"
