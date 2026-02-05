@@ -18,19 +18,17 @@ resources:
 - metrics_auth_role.yaml
 - metrics_auth_role_binding.yaml
 - metrics_reader_role.yaml
-# For each CRD, "Editor" and "Viewer" roles are scaffolded by
-# default, aiding admins in cluster management. Those roles are
-# not used by the Project itself. You can comment the following lines
-# if you do not want those helpers be installed with your Project.
-- isolatedchallenge_editor_role.yaml
-- isolatedchallenge_viewer_role.yaml
-- sharedchallenge_editor_role.yaml
-- sharedchallenge_viewer_role.yaml
-
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
-# not used by the {{ .ProjectName }} itself. You can comment the following lines
+# not used by the prism-ctf itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
 - challengeinstance_admin_role.yaml
 - challengeinstance_editor_role.yaml
 - challengeinstance_viewer_role.yaml
+- sharedchallenge_admin_role.yaml
+- sharedchallenge_editor_role.yaml
+- sharedchallenge_viewer_role.yaml
+- isolatedchallenge_admin_role.yaml
+- isolatedchallenge_editor_role.yaml
+- isolatedchallenge_viewer_role.yaml
+

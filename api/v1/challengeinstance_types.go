@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ChallengeInstanceSpec defines the desired state of ChallengeInstance.
+// ChallengeInstanceSpec defines the desired state of ChallengeInstance
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.random_id) || has(self.random_id)", message="Random id is required once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.flag) || has(self.flag)", message="Flag is required once set"
 type ChallengeInstanceSpec struct {
@@ -52,11 +52,11 @@ type ChallengeInstanceSpec struct {
 // ChallengeInstanceStatus defines the observed state of ChallengeInstance.
 type ChallengeInstanceStatus struct {
 	ExposedUrls []ExposeStatus `json:"exposedUrls"`
-	// +patchMergeKey=type
-	// +patchStrategy=merge
+
 	// +listType=map
 	// +listMapKey=type
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -65,21 +65,29 @@ type ChallengeInstanceStatus struct {
 // +kubebuilder:selectablefield:JSONPath=`.spec.team`
 // +kubebuilder:selectablefield:JSONPath=`.spec.challenge`
 
-// ChallengeInstance is the Schema for the challengeinstances API.
+// ChallengeInstance is the Schema for the challengeinstances API
 type ChallengeInstance struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   ChallengeInstanceSpec   `json:"spec,omitempty"`
-	Status ChallengeInstanceStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of ChallengeInstance
+	// +required
+	Spec ChallengeInstanceSpec `json:"spec"`
+
+	// status defines the observed state of ChallengeInstance
+	// +optional
+	Status ChallengeInstanceStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// ChallengeInstanceList contains a list of ChallengeInstance.
+// ChallengeInstanceList contains a list of ChallengeInstance
 type ChallengeInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []ChallengeInstance `json:"items"`
 }
 

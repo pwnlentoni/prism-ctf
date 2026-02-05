@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.1
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: challengeinstances.prism-ctf.pwnlentoni.team
 spec:
   group: prism-ctf.pwnlentoni.team
@@ -17,7 +17,7 @@ spec:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: ChallengeInstance is the Schema for the challengeinstances API.
+        description: ChallengeInstance is the Schema for the challengeinstances API
         properties:
           apiVersion:
             description: |-
@@ -37,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ChallengeInstanceSpec defines the desired state of ChallengeInstance.
+            description: spec defines the desired state of ChallengeInstance
             properties:
               challenge:
                 maxLength: 512
@@ -76,7 +76,7 @@ spec:
             - message: Flag is required once set
               rule: '!has(oldSelf.flag) || has(self.flag)'
           status:
-            description: ChallengeInstanceStatus defines the observed state of ChallengeInstance.
+            description: status defines the observed state of ChallengeInstance
             properties:
               conditions:
                 items:
@@ -160,6 +160,8 @@ spec:
             required:
             - exposedUrls
             type: object
+        required:
+        - spec
         type: object
     selectableFields:
     - jsonPath: .spec.team

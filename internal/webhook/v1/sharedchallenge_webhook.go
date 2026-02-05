@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,14 +18,13 @@ package v1
 
 import (
 	"context"
-	"fmt"
-	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 )
 
 // nolint:unused
@@ -34,7 +33,7 @@ var sharedchallengelog = logf.Log.WithName("sharedchallenge-resource")
 
 // SetupSharedChallengeWebhookWithManager registers the webhook for SharedChallenge in the manager.
 func SetupSharedChallengeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&prismctfv1.SharedChallenge{}).
+	return ctrl.NewWebhookManagedBy(mgr, &prismctfv1.SharedChallenge{}).
 		WithValidator(&SharedChallengeCustomValidator{}).
 		Complete()
 }
@@ -42,8 +41,7 @@ func SetupSharedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+// NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
 // +kubebuilder:webhook:path=/validate-prism-ctf-pwnlentoni-team-v1-sharedchallenge,mutating=false,failurePolicy=fail,sideEffects=None,groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges,verbs=create;update,versions=v1,name=vsharedchallenge-v1.kb.io,admissionReviewVersions=v1
 
 // SharedChallengeCustomValidator struct is responsible for validating the SharedChallenge resource
@@ -53,8 +51,6 @@ func SetupSharedChallengeWebhookWithManager(mgr ctrl.Manager) error {
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type SharedChallengeCustomValidator struct {
 }
-
-var _ webhook.CustomValidator = &SharedChallengeCustomValidator{}
 
 func (v *SharedChallengeCustomValidator) validate(chall *prismctfv1.SharedChallenge) (warnings admission.Warnings, err error) {
 	containers, err := validateContainers(chall.Spec.Containers, field.NewPath("spec", "containers"))
@@ -70,34 +66,22 @@ func (v *SharedChallengeCustomValidator) validate(chall *prismctfv1.SharedChalle
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.
-func (v *SharedChallengeCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	chall, ok := obj.(*prismctfv1.SharedChallenge)
-	if !ok {
-		return nil, fmt.Errorf("expected a SharedChallenge object but got %T", obj)
-	}
+func (v *SharedChallengeCustomValidator) ValidateCreate(_ context.Context, chall *prismctfv1.SharedChallenge) (admission.Warnings, error) {
 	sharedchallengelog.Info("Validation for SharedChallenge upon creation", "name", chall.GetName())
 
 	return v.validate(chall)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.
-func (v *SharedChallengeCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	chall, ok := newObj.(*prismctfv1.SharedChallenge)
-	if !ok {
-		return nil, fmt.Errorf("expected a SharedChallenge object for the newObj but got %T", newObj)
-	}
+func (v *SharedChallengeCustomValidator) ValidateUpdate(_ context.Context, oldObj, chall *prismctfv1.SharedChallenge) (admission.Warnings, error) {
 	sharedchallengelog.Info("Validation for SharedChallenge upon update", "name", chall.GetName())
 
 	return v.validate(chall)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type SharedChallenge.
-func (v *SharedChallengeCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	sharedchallenge, ok := obj.(*prismctfv1.SharedChallenge)
-	if !ok {
-		return nil, fmt.Errorf("expected a SharedChallenge object but got %T", obj)
-	}
-	sharedchallengelog.Info("Validation for SharedChallenge upon deletion", "name", sharedchallenge.GetName())
+func (v *SharedChallengeCustomValidator) ValidateDelete(_ context.Context, obj *prismctfv1.SharedChallenge) (admission.Warnings, error) {
+	sharedchallengelog.Info("Validation for SharedChallenge upon deletion", "name", obj.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,20 +21,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"github.com/pwnlentoni/prism-ctf/internal/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation/field"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
+	"github.com/pwnlentoni/prism-ctf/internal/utils"
 )
 
 // nolint:unused
@@ -50,7 +47,7 @@ func SetupChallengeInstanceWebhookWithManager(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-	return ctrl.NewWebhookManagedBy(mgr).For(&prismctfv1.ChallengeInstance{}).
+	return ctrl.NewWebhookManagedBy(mgr, &prismctfv1.ChallengeInstance{}).
 		WithValidator(&ChallengeInstanceCustomValidator{Client: mgr.GetClient()}).
 		WithDefaulter(&ChallengeInstanceCustomDefaulter{Client: mgr.GetClient()}).
 		Complete()
@@ -69,15 +66,8 @@ type ChallengeInstanceCustomDefaulter struct {
 	Client client.Client
 }
 
-var _ webhook.CustomDefaulter = &ChallengeInstanceCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind ChallengeInstance.
-func (d *ChallengeInstanceCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	i, ok := obj.(*prismctfv1.ChallengeInstance)
-
-	if !ok {
-		return fmt.Errorf("expected an ChallengeInstance object but got %T", obj)
-	}
+func (d *ChallengeInstanceCustomDefaulter) Default(ctx context.Context, i *prismctfv1.ChallengeInstance) error {
 	challengeinstancelog.Info("Defaulting for ChallengeInstance", "name", i.GetName())
 
 	if len(i.Spec.RandomId) != 0 {
@@ -116,8 +106,7 @@ func (d *ChallengeInstanceCustomDefaulter) Default(ctx context.Context, obj runt
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+// NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
 // +kubebuilder:webhook:path=/validate-prism-ctf-pwnlentoni-team-v1-challengeinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=prism-ctf.pwnlentoni.team,resources=challengeinstances,verbs=create,versions=v1,name=vchallengeinstance-v1.kb.io,admissionReviewVersions=v1
 
 // ChallengeInstanceCustomValidator struct is responsible for validating the ChallengeInstance resource
@@ -129,17 +118,11 @@ type ChallengeInstanceCustomValidator struct {
 	Client client.Client
 }
 
-var _ webhook.CustomValidator = &ChallengeInstanceCustomValidator{}
-
 var ErrLimitReached = errors.New("instance count limit reached")
 var ErrAlreadyExists = errors.New("instance already exists")
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type ChallengeInstance.
-func (v *ChallengeInstanceCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	i, ok := obj.(*prismctfv1.ChallengeInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a ChallengeInstance object but got %T", obj)
-	}
+func (v *ChallengeInstanceCustomValidator) ValidateCreate(ctx context.Context, i *prismctfv1.ChallengeInstance) (admission.Warnings, error) {
 	challengeinstancelog.Info("Validation for ChallengeInstance upon creation", "name", i.GetName())
 
 	otherInstances := &prismctfv1.ChallengeInstanceList{}
@@ -161,23 +144,19 @@ func (v *ChallengeInstanceCustomValidator) ValidateCreate(ctx context.Context, o
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type ChallengeInstance.
-func (v *ChallengeInstanceCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	challengeinstance, ok := newObj.(*prismctfv1.ChallengeInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a ChallengeInstance object for the newObj but got %T", newObj)
-	}
-	challengeinstancelog.Info("Validation for ChallengeInstance upon update", "name", challengeinstance.GetName())
+func (v *ChallengeInstanceCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *prismctfv1.ChallengeInstance) (admission.Warnings, error) {
+	challengeinstancelog.Info("Validation for ChallengeInstance upon update", "name", newObj.GetName())
+
+	// TODO(user): fill in your validation logic upon object update.
 
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type ChallengeInstance.
-func (v *ChallengeInstanceCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	challengeinstance, ok := obj.(*prismctfv1.ChallengeInstance)
-	if !ok {
-		return nil, fmt.Errorf("expected a ChallengeInstance object but got %T", obj)
-	}
-	challengeinstancelog.Info("Validation for ChallengeInstance upon deletion", "name", challengeinstance.GetName())
+func (v *ChallengeInstanceCustomValidator) ValidateDelete(_ context.Context, obj *prismctfv1.ChallengeInstance) (admission.Warnings, error) {
+	challengeinstancelog.Info("Validation for ChallengeInstance upon deletion", "name", obj.GetName())
+
+	// TODO(user): fill in your validation logic upon object deletion.
 
 	return nil, nil
 }

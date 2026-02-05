@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,11 +23,13 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// IsolatedChallengeSpec defines the desired state of IsolatedChallenge.
+// IsolatedChallengeSpec defines the desired state of IsolatedChallenge
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.flag_regex) || has(self.flag_regex)", message="Flag regex is required once set"
 type IsolatedChallengeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// The following markers will use OpenAPI v3 schema to validate the value
+	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
 	Containers []ContainerSpec `json:"containers"`
 	Exposes    []ExposeSpec    `json:"exposes"`
@@ -57,21 +59,29 @@ type IsolatedChallengeStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 
-// IsolatedChallenge is the Schema for the isolatedchallenges API.
+// IsolatedChallenge is the Schema for the isolatedchallenges API
 type IsolatedChallenge struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   IsolatedChallengeSpec   `json:"spec,omitempty"`
-	Status IsolatedChallengeStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of IsolatedChallenge
+	// +required
+	Spec IsolatedChallengeSpec `json:"spec"`
+
+	// status defines the observed state of IsolatedChallenge
+	// +optional
+	Status IsolatedChallengeStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// IsolatedChallengeList contains a list of IsolatedChallenge.
+// IsolatedChallengeList contains a list of IsolatedChallenge
 type IsolatedChallengeList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []IsolatedChallenge `json:"items"`
 }
 

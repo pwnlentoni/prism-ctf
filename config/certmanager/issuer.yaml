@@ -5,7 +5,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   labels:
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: prism-ctf
     app.kubernetes.io/managed-by: kustomize
   name: selfsigned-issuer
   namespace: prism-ctf-system

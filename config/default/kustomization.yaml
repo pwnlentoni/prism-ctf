@@ -43,6 +43,7 @@ patches:
   target:
     kind: Deployment
     name: controller-manager
+
 # Uncomment the patches line if you enable Metrics and CertManager
 # [METRICS-WITH-CERTS] To enable metrics protected with certManager, uncomment the following line.
 # This patch will protect the metrics with certManager self-signed certs.
@@ -79,6 +80,17 @@ replacements:
          delimiter: '.'
          index: 0
          create: true
+#     - select: # Uncomment the following to set the Service name for TLS config in Prometheus ServiceMonitor
+#         kind: ServiceMonitor
+#         group: monitoring.coreos.com
+#         version: v1
+#         name: controller-manager-metrics-monitor
+#       fieldPaths:
+#         - spec.endpoints.0.tlsConfig.serverName
+#       options:
+#         delimiter: '.'
+#         index: 0
+#         create: true
 
  - source:
      kind: Service
@@ -98,6 +110,17 @@ replacements:
          delimiter: '.'
          index: 1
          create: true
+#     - select: # Uncomment the following to set the Service namespace for TLS in Prometheus ServiceMonitor
+#         kind: ServiceMonitor
+#         group: monitoring.coreos.com
+#         version: v1
+#         name: controller-manager-metrics-monitor
+#       fieldPaths:
+#         - spec.endpoints.0.tlsConfig.serverName
+#       options:
+#         delimiter: '.'
+#         index: 1
+#         create: true
 
  - source: # Uncomment the following block if you have any webhook
      kind: Service

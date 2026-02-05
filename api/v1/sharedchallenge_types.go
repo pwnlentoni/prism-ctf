@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// SharedChallengeSpec defines the desired state of SharedChallenge.
+// SharedChallengeSpec defines the desired state of SharedChallenge
 type SharedChallengeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -35,32 +35,39 @@ type SharedChallengeSpec struct {
 // SharedChallengeStatus defines the observed state of SharedChallenge.
 type SharedChallengeStatus struct {
 	ExposedUrls []ExposeStatus `json:"exposedUrls"`
-	// +patchMergeKey=type
-	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 
-// SharedChallenge is the Schema for the sharedchallenges API.
+// SharedChallenge is the Schema for the sharedchallenges API
 type SharedChallenge struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   SharedChallengeSpec   `json:"spec,omitempty"`
-	Status SharedChallengeStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of SharedChallenge
+	// +required
+	Spec SharedChallengeSpec `json:"spec"`
+
+	// status defines the observed state of SharedChallenge
+	// +optional
+	Status SharedChallengeStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// SharedChallengeList contains a list of SharedChallenge.
+// SharedChallengeList contains a list of SharedChallenge
 type SharedChallengeList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []SharedChallenge `json:"items"`
 }
 
