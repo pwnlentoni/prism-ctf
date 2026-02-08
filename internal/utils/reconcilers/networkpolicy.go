@@ -3,12 +3,13 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+	"maps"
+
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	ciliumapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -60,7 +61,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 					{
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"k8s.io.kubernetes.pod.namespace": "traefik",
+								"k8s:io.kubernetes.pod.namespace": "traefik",
 							},
 						},
 					},
@@ -85,7 +86,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 								"k8s." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
 							},
 							MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
-								Key:      "k8s.io.kubernetes.pod.namespace",
+								Key:      "k8s:io.kubernetes.pod.namespace",
 								Operator: slim_metav1.LabelSelectorOpExists,
 							}},
 						},
@@ -98,7 +99,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 						{
 							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"k8s.io.kubernetes.pod.namespace": "kube-system",
+									"k8s:io.kubernetes.pod.namespace": "kube-system",
 									"k8s-app":                         "kube-dns",
 								},
 							},
