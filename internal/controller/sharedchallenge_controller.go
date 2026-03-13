@@ -24,10 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
@@ -53,6 +56,12 @@ func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, names
 	if err != nil {
 		l.Error(err, "namespace reconcile failed")
 		return err, "NamespaceReconcileFailed"
+	}
+
+	err = reconcilers.ReconcileRoleBinding(ctx, r.Client, namespace, commonLabels, chal)
+	if err != nil {
+		l.Error(err, "rolebinding reconcile failed")
+		return err, "RoleBindingReconcileFailed"
 	}
 
 	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, chal)
@@ -142,6 +151,28 @@ func (r *SharedChallengeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&prismctfv1.SharedChallenge{}).
 		Owns(&appsv1.Deployment{}).
+		Watches(&prismctfv1.PrismServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			l := logf.FromContext(ctx)
+			challsList := &prismctfv1.SharedChallengeList{}
+			err := mgr.GetClient().List(ctx, challsList)
+			if err != nil {
+				l.Error(err, "failed to list shared challenges")
+				return nil
+			}
+
+			l.Info("triggering all shared challs reconcile due to PrismServiceAccount update", "challs_count", len(challsList.Items))
+			reconciles := make([]reconcile.Request, 0, len(challsList.Items))
+			for _, instance := range challsList.Items {
+				reconciles = append(reconciles, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: instance.Namespace,
+						Name:      instance.Name,
+					},
+				})
+			}
+
+			return reconciles
+		})). // trigger reconciles on prism service account update
 		Named("sharedchallenge").
 		Complete(r)
 }

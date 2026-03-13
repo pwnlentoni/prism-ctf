@@ -62,7 +62,25 @@ rules:
   - prism-ctf.pwnlentoni.team
   resources:
   - isolatedchallenges
+  - prismserviceaccounts
   verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - prism-ctf-challenge-manager-role
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
   - get
   - list
   - watch

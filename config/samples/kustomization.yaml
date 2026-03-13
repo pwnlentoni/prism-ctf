@@ -4,4 +4,5 @@ resources:
 - prism-ctf_v1_sharedchallenge_tcp.yaml
 - prism-ctf_v1_isolatedchallenge_http.yaml
 - prism-ctf_v1_challengeinstance.yaml
+- prism-ctf_v1_prismserviceaccount.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

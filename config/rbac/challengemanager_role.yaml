@@ -1,0 +1,15 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: challenge-manager-role
+rules:
+  - apiGroups: [ "" ] # Grant access to pod logs
+    resources: [ "pods", "pods/log" ]
+    verbs: [ "get", "list" ]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: [ "get", "list" ]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch"]

@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the prism-ctf itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- prismserviceaccount_admin_role.yaml
+- prismserviceaccount_editor_role.yaml
+- prismserviceaccount_viewer_role.yaml
 - challengeinstance_admin_role.yaml
 - challengeinstance_editor_role.yaml
 - challengeinstance_viewer_role.yaml
@@ -31,4 +34,4 @@ resources:
 - isolatedchallenge_admin_role.yaml
 - isolatedchallenge_editor_role.yaml
 - isolatedchallenge_viewer_role.yaml
-
+- challengemanager_role.yaml

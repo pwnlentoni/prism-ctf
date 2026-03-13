@@ -5,6 +5,7 @@ resources:
 - bases/prism-ctf.pwnlentoni.team_sharedchallenges.yaml
 - bases/prism-ctf.pwnlentoni.team_isolatedchallenges.yaml
 - bases/prism-ctf.pwnlentoni.team_challengeinstances.yaml
+- bases/prism-ctf.pwnlentoni.team_prismserviceaccounts.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

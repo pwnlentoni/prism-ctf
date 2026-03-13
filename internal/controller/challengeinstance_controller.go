@@ -55,6 +55,12 @@ func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, nam
 		return err, "NamespaceReconcileFailed"
 	}
 
+	err = reconcilers.ReconcileRoleBinding(ctx, r.Client, namespace, commonLabels, instance)
+	if err != nil {
+		l.Error(err, "rolebinding reconcile failed")
+		return err, "RoleBindingReconcileFailed"
+	}
+
 	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, instance)
 	if err != nil {
 		l.Error(err, "network policy reconcile failed")
@@ -198,6 +204,29 @@ func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 			return reconciles
 		})). // trigger reconciles on challenge spec update
+		Watches(&prismctfv1.PrismServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			l := logf.FromContext(ctx)
+			instancesList := &prismctfv1.ChallengeInstanceList{}
+			err := mgr.GetClient().List(ctx, instancesList)
+			if err != nil {
+				l.Error(err, "failed to list challenge instances")
+				return nil
+			}
+
+			l.Info("triggering all instances reconcile due to PrismServiceAccount update", "instance_count", len(instancesList.Items))
+			reconciles := make([]reconcile.Request, 0, len(instancesList.Items))
+			for _, instance := range instancesList.Items {
+				reconciles = append(reconciles, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: instance.Namespace,
+						Name:      instance.Name,
+					},
+				})
+			}
+
+			return reconciles
+		})). // trigger reconciles on prism service account update
 		Named("challengeinstance").
 		Complete(r)
+
 }
