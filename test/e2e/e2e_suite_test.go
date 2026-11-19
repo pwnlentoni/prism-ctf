@@ -39,7 +39,8 @@ var (
 )
 
 // TestE2E runs the e2e test suite to validate the solution in an isolated environment.
-// The default setup requires Kind and CertManager.
+// The default setup requires Kind, helm, CertManager, the Gateway API CRDs, the prometheus-operator CRDs
+// and the CiliumNetworkPolicy CRD.
 //
 // To skip CertManager installation, set: CERT_MANAGER_INSTALL_SKIP=true
 func TestE2E(t *testing.T) {
@@ -60,11 +61,29 @@ var _ = BeforeSuite(func() {
 	err = utils.LoadImageToKindClusterWithName(managerImage)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
 
+	By("installing Gateway API CRDs (standard channel)")
+	Expect(utils.InstallGatewayAPICRDs()).To(Succeed(), "Failed to install Gateway API CRDs")
+
+	By("installing prometheus-operator CRDs")
+	Expect(utils.InstallPrometheusOperatorCRDs()).To(Succeed(), "Failed to install prometheus-operator CRDs")
+
+	By("installing the CiliumNetworkPolicy CRD")
+	Expect(utils.InstallCiliumNetworkPolicyCRD()).To(Succeed(), "Failed to install the CiliumNetworkPolicy CRD")
+
 	setupCertManager()
 })
 
 var _ = AfterSuite(func() {
 	teardownCertManager()
+
+	By("uninstalling the CiliumNetworkPolicy CRD")
+	utils.UninstallCiliumNetworkPolicyCRD()
+
+	By("uninstalling prometheus-operator CRDs")
+	utils.UninstallPrometheusOperatorCRDs()
+
+	By("uninstalling Gateway API CRDs")
+	utils.UninstallGatewayAPICRDs()
 })
 
 // setupCertManager installs CertManager if needed for webhook tests.
