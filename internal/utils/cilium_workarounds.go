@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	ciliumapi "github.com/cilium/cilium/pkg/policy/api"
 	"k8s.io/apimachinery/pkg/api/equality"

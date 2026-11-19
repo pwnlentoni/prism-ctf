@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/puzpuzpuz/xsync/v3"
 	"regexp"
 	"text/template"
 	"text/template/parse"
+
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 var tplFuncMap = template.FuncMap{
@@ -99,7 +100,6 @@ func FlagRegex(tpl string) (string, error) {
 					return err
 				}
 			}
-			break
 		case parse.NodeAction:
 			nn := n.(*parse.ActionNode)
 			for _, cmd := range nn.Pipe.Cmds {

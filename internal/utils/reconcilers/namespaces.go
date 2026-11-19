@@ -3,6 +3,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,9 +14,7 @@ import (
 
 func ReconcileNamespace(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object) error {
 	l := log.FromContext(ctx)
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-		Name: namespace,
-	}}
+	ns := &corev1.Namespace{Name: namespace}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, c, ns, func() error {
 		if !controllerutil.HasControllerReference(ns) {

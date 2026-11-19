@@ -55,7 +55,7 @@ var _ = Describe("ChallengeInstance Controller", func() {
 		createInstance := func(expiration *metav1.Time) {
 			By("creating the custom resource for the Kind ChallengeInstance")
 			resource := &prismctfv1.ChallengeInstance{
-				ObjectMeta: metav1.ObjectMeta{Name: resourceName},
+				Name: resourceName,
 				Spec: prismctfv1.ChallengeInstanceSpec{
 					Team:       team,
 					Challenge:  challengeName,
@@ -83,7 +83,7 @@ var _ = Describe("ChallengeInstance Controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				containers, exposes := testContainers()
 				chal := &prismctfv1.IsolatedChallenge{
-					ObjectMeta: metav1.ObjectMeta{Name: challengeName},
+					Name: challengeName,
 					Spec: prismctfv1.IsolatedChallengeSpec{
 						Containers:   containers,
 						Exposes:      exposes,
@@ -97,7 +97,7 @@ var _ = Describe("ChallengeInstance Controller", func() {
 
 		AfterEach(func() {
 			By("Cleanup the ChallengeInstance, if it still exists")
-			resource := &prismctfv1.ChallengeInstance{ObjectMeta: metav1.ObjectMeta{Name: resourceName}}
+			resource := &prismctfv1.ChallengeInstance{Name: resourceName}
 			Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, resource))).To(Succeed())
 			Eventually(func() bool {
 				return errors.IsNotFound(k8sClient.Get(ctx, typeNamespacedName, &prismctfv1.ChallengeInstance{}))

@@ -21,10 +21,8 @@ func ReconcileRoleBinding(ctx context.Context, c client.Client, namespace string
 	l := log.FromContext(ctx)
 
 	r := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prism-ctf-challenge-manager-rolebinding",
-			Namespace: namespace,
-		},
+		Name:      "prism-ctf-challenge-manager-rolebinding",
+		Namespace: namespace,
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, c, r, func() error {
 		if !controllerutil.HasControllerReference(r) {

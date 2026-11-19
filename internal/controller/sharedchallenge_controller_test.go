@@ -72,7 +72,7 @@ var _ = Describe("SharedChallenge Controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				containers, exposes := testContainers()
 				resource := &prismctfv1.SharedChallenge{
-					ObjectMeta: metav1.ObjectMeta{Name: resourceName},
+					Name: resourceName,
 					Spec: prismctfv1.SharedChallengeSpec{
 						Containers: containers,
 						Exposes:    exposes,

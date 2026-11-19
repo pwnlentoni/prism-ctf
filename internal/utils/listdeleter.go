@@ -3,11 +3,12 @@ package utils
 import (
 	"context"
 	"fmt"
+	"slices"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"slices"
 )
 
 type ListDeleter[T client.Object] struct {

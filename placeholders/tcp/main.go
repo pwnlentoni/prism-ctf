@@ -42,7 +42,8 @@ func serveTCP(conn net.Conn) {
 	if err != nil {
 		log.Println(err)
 	}
-	_, err = conn.Write([]byte("If you still see this message 5 minutes after starting the instance please open a ticket mentioning your team and the URL you're connecting to.\n"))
+	_, err = conn.Write([]byte("If you still see this message 5 minutes after starting the instance " +
+		"please open a ticket mentioning your team and the URL you're connecting to.\n"))
 	if err != nil {
 		log.Println(err)
 	}
