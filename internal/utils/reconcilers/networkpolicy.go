@@ -26,7 +26,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 	}
 	prefixedLabels := make(map[string]string)
 	for k, v := range commonLabels {
-		prefixedLabels["k8s."+k] = v
+		prefixedLabels["k8s:"+k] = v
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, c, isolatePolicy, func() error {
 		if !controllerutil.HasControllerReference(isolatePolicy) {
@@ -83,7 +83,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 					{ // allow egress to explicitly marked pods
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"k8s." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
+								"k8s:" + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
 							},
 							MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
 								Key:      "k8s:io.kubernetes.pod.namespace",
@@ -136,7 +136,7 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 		egressPolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.EndpointSelector{
 			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"k8s." + utils.EgressEnabledLabel: utils.EgressEnabledValue,
+					"k8s:" + utils.EgressEnabledLabel: utils.EgressEnabledValue,
 				}}}).WithEgressRules([]ciliumapi.EgressRule{
 			{ // allow egress to everything except private IPs
 				EgressCommonRule: ciliumapi.EgressCommonRule{
