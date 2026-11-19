@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"slices"
 	"strings"
 )
@@ -78,7 +77,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 		l.Error(err, "deployment deleter error")
 	}
 
-	tlsRouteDeleter, err := utils.NewDeleter(ctx, c, &gatewayv1alpha2.TLSRoute{}, namespace)
+	tlsRouteDeleter, err := utils.NewDeleter(ctx, c, &gatewayv1.TLSRoute{}, namespace)
 	if err != nil {
 		l.Error(err, "service deleter error")
 	}
@@ -169,7 +168,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 				}
 			case prismctfv1.ExposeProtocolTCP:
 				{
-					route := &gatewayv1alpha2.TLSRoute{
+					route := &gatewayv1.TLSRoute{
 						ObjectMeta: meta,
 					}
 					tlsRouteDeleter.MarkUsed(ctx, route)
@@ -185,7 +184,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 						route.Spec.Hostnames = []gatewayv1.Hostname{
 							gatewayv1.Hostname(exposeHost),
 						}
-						route.Spec.Rules = []gatewayv1alpha2.TLSRouteRule{{
+						route.Spec.Rules = []gatewayv1.TLSRouteRule{{
 							BackendRefs: []gatewayv1.BackendRef{backendRef},
 						}}
 						return nil
