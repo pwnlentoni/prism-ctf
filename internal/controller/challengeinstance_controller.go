@@ -118,7 +118,8 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if time.Now().After(instance.Spec.Expiration.Time) {
+	// a missing expiration means the instance never expires
+	if instance.Spec.Expiration != nil && time.Now().After(instance.Spec.Expiration.Time) {
 		l.Info("instance expired, deleting", "req", req)
 		err := r.Delete(ctx, instance)
 		if err != nil {
@@ -161,8 +162,11 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		l.Error(updErr, "failed to update status")
 	}
 
+	if instance.Spec.Expiration == nil {
+		return ctrl.Result{}, nil
+	}
 	return ctrl.Result{
-		RequeueAfter: instance.Spec.Expiration.Sub(time.Now()) + 1*time.Second,
+		RequeueAfter: time.Until(instance.Spec.Expiration.Time) + 1*time.Second,
 	}, nil
 }
 
