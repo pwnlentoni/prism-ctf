@@ -5,7 +5,7 @@ metadata:
   name: redirect-http-to-https
 spec:
   parentRefs:
-    - name: challenge-gateway
+    - name: prism-ctf-challenge-gateway  # namePrefix is not applied to parentRefs; must match config/default
       sectionName: http
   rules:
     - filters:
