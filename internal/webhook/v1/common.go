@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+
 	challengesv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )

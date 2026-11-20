@@ -15,18 +15,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// ciliumPodNamespaceLabel is the Cilium endpoint label holding the pod namespace.
+const ciliumPodNamespaceLabel = "k8s:io.kubernetes.pod.namespace"
+
 func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object) error {
 	l := log.FromContext(ctx)
 
 	isolatePolicy := &ciliumv2.CiliumNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "isolate",
-		},
+		Namespace: namespace,
+		Name:      "isolate",
 	}
 	prefixedLabels := make(map[string]string)
 	for k, v := range commonLabels {
-		prefixedLabels["k8s."+k] = v
+		prefixedLabels["k8s:"+k] = v
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, c, isolatePolicy, func() error {
 		if !controllerutil.HasControllerReference(isolatePolicy) {
@@ -37,13 +38,13 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 		}
 		ingressRules := []ciliumapi.IngressRule{
 			{ // allow ingress from other challenge containers
-				IngressCommonRule: ciliumapi.IngressCommonRule{FromEndpoints: []ciliumapi.EndpointSelector{
+				FromEndpoints: []ciliumapi.EndpointSelector{
 					{
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: maps.Clone(prefixedLabels),
 						},
 					},
-				}},
+				},
 			},
 		}
 		// These two rules require that the cluster isn't pwned, specifically:
@@ -51,60 +52,59 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 		// 	- attackers can't edit traefik config
 		if *utils.NodePortMode {
 			ingressRules = append(ingressRules, ciliumapi.IngressRule{ // allow ingress from world
-				IngressCommonRule: ciliumapi.IngressCommonRule{FromEntities: []ciliumapi.Entity{
+				FromEntities: []ciliumapi.Entity{
 					ciliumapi.EntityWorld,
-				}},
+				},
 			})
 		} else {
 			ingressRules = append(ingressRules, ciliumapi.IngressRule{ // allow ingress from traefik
-				IngressCommonRule: ciliumapi.IngressCommonRule{FromEndpoints: []ciliumapi.EndpointSelector{
+				FromEndpoints: []ciliumapi.EndpointSelector{
 					{
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"k8s:io.kubernetes.pod.namespace": "traefik",
+								ciliumPodNamespaceLabel: "traefik",
 							},
 						},
 					},
-				}},
+				},
 			})
 		}
 		isolatePolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.WildcardEndpointSelector).WithIngressRules(ingressRules).WithEgressRules([]ciliumapi.EgressRule{
 			{
-				EgressCommonRule: ciliumapi.EgressCommonRule{ToEndpoints: []ciliumapi.EndpointSelector{
+				ToEndpoints: []ciliumapi.EndpointSelector{
 					{ // allow egress to other challenge containers
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: maps.Clone(prefixedLabels),
 						},
 					},
-				}},
+				},
 			},
 			{
-				EgressCommonRule: ciliumapi.EgressCommonRule{ToEndpoints: []ciliumapi.EndpointSelector{
+				ToEndpoints: []ciliumapi.EndpointSelector{
 					{ // allow egress to explicitly marked pods
 						LabelSelector: &slim_metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"k8s." + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
+								"k8s:" + utils.AccessibleByChallengesLabel: utils.AccessibleByChallengesValue,
 							},
 							MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
-								Key:      "k8s:io.kubernetes.pod.namespace",
+								Key:      ciliumPodNamespaceLabel,
 								Operator: slim_metav1.LabelSelectorOpExists,
 							}},
 						},
 					},
-				}},
+				},
 			},
 			{ // allow egress to kube-dns
-				EgressCommonRule: ciliumapi.EgressCommonRule{
-					ToEndpoints: []ciliumapi.EndpointSelector{
-						{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"k8s:io.kubernetes.pod.namespace": "kube-system",
-									"k8s-app":                         "kube-dns",
-								},
+				ToEndpoints: []ciliumapi.EndpointSelector{
+					{
+						LabelSelector: &slim_metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								ciliumPodNamespaceLabel: "kube-system",
+								"k8s-app":               "kube-dns",
 							},
 						},
-					}},
+					},
+				},
 				ToPorts: []ciliumapi.PortRule{{
 					Ports: []ciliumapi.PortProtocol{{Port: "53", Protocol: ciliumapi.ProtoUDP}},
 					Rules: &ciliumapi.L7Rules{
@@ -121,10 +121,8 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 	l.Info("isolate policy reconciled", "operation", op)
 
 	egressPolicy := &ciliumv2.CiliumNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "allow-egress",
-		},
+		Namespace: namespace,
+		Name:      "allow-egress",
 	}
 	op, err = controllerutil.CreateOrUpdate(ctx, c, egressPolicy, func() error {
 		if !controllerutil.HasControllerReference(egressPolicy) {
@@ -136,19 +134,17 @@ func ReconcileNetworkPolicies(ctx context.Context, c client.Client, namespace st
 		egressPolicy.Spec = ciliumapi.NewRule().WithEndpointSelector(ciliumapi.EndpointSelector{
 			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"k8s." + utils.EgressEnabledLabel: utils.EgressEnabledValue,
+					"k8s:" + utils.EgressEnabledLabel: utils.EgressEnabledValue,
 				}}}).WithEgressRules([]ciliumapi.EgressRule{
 			{ // allow egress to everything except private IPs
-				EgressCommonRule: ciliumapi.EgressCommonRule{
-					ToCIDRSet: []ciliumapi.CIDRRule{
-						{
-							Cidr: "0.0.0.0/0",
-							ExceptCIDRs: []ciliumapi.CIDR{
-								"10.0.0.0/8",
-								"192.168.0.0/16",
-								"172.16.0.0/20",
-								"169.254.169.0/24",
-							},
+				ToCIDRSet: []ciliumapi.CIDRRule{
+					{
+						Cidr: "0.0.0.0/0",
+						ExceptCIDRs: []ciliumapi.CIDR{
+							"10.0.0.0/8",
+							"192.168.0.0/16",
+							"172.16.0.0/20",
+							"169.254.169.0/24",
 						},
 					},
 				},

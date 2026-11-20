@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,25 +45,25 @@ type ChallengeInstanceReconciler struct {
 	Recorder events.EventRecorder
 }
 
-func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, instance *prismctfv1.ChallengeInstance, chal *prismctfv1.IsolatedChallenge) (error, string) {
+func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, instance *prismctfv1.ChallengeInstance, chal *prismctfv1.IsolatedChallenge) (string, error) {
 	l := logf.FromContext(ctx)
 
 	err := reconcilers.ReconcileNamespace(ctx, r.Client, namespace, commonLabels, instance)
 	if err != nil {
 		l.Error(err, "namespace reconcile failed")
-		return err, "NamespaceReconcileFailed"
+		return "NamespaceReconcileFailed", err
 	}
 
 	err = reconcilers.ReconcileRoleBinding(ctx, r.Client, namespace, commonLabels, instance)
 	if err != nil {
 		l.Error(err, "rolebinding reconcile failed")
-		return err, "RoleBindingReconcileFailed"
+		return "RoleBindingReconcileFailed", err
 	}
 
 	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, instance)
 	if err != nil {
 		l.Error(err, "network policy reconcile failed")
-		return err, "NetworkPolicyReconcileFailed"
+		return "NetworkPolicyReconcileFailed", err
 	}
 
 	exposeMap := reconcilers.ExposeDomainMap(chal.Spec.Exposes, chal.Name, "-"+instance.Spec.RandomId+utils.DomainSuffix())
@@ -72,21 +71,21 @@ func (r *ChallengeInstanceReconciler) internalReconcile(ctx context.Context, nam
 	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, instance, &instance.Spec.Flag, exposeMap)
 	if err != nil {
 		l.Error(err, "configmap reconcile failed")
-		return err, "ConfigMapReconcileFailed"
+		return "ConfigMapReconcileFailed", err
 	}
 
 	statusMap, err := reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Containers, utils.NodeTypeIsolated, &instance.Spec.Flag)
 	if err != nil {
 		l.Error(err, "containers reconcile failed")
-		return err, "ContainersReconcileFailed"
+		return "ContainersReconcileFailed", err
 	}
 
 	instance.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, instance, chal.Spec.Exposes, statusMap, exposeMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
-		return err, "IngressReconcileFailed"
+		return "IngressReconcileFailed", err
 	}
-	return nil, "ReconcileSuccess"
+	return "ReconcileSuccess", nil
 }
 
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=isolatedchallenges,verbs=get;list;watch
@@ -118,7 +117,8 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if time.Now().After(instance.Spec.Expiration.Time) {
+	// a missing expiration means the instance never expires
+	if instance.Spec.Expiration != nil && time.Now().After(instance.Spec.Expiration.Time) {
 		l.Info("instance expired, deleting", "req", req)
 		err := r.Delete(ctx, instance)
 		if err != nil {
@@ -128,7 +128,7 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	chal := &prismctfv1.IsolatedChallenge{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: instance.Spec.Challenge}, chal)
+	err := r.Get(ctx, client.ObjectKey{Name: instance.Spec.Challenge}, chal)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get challenge: %w", err)
 	}
@@ -139,12 +139,12 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	commonLabels := utils.MapMerge(utils.MakeCommonLabels(chal.GetName()), utils.MakeInstancedLabels(instance.Spec.Team))
 
-	err, condition := r.internalReconcile(ctx, namespace, commonLabels, instance, chal)
+	condition, err := r.internalReconcile(ctx, namespace, commonLabels, instance, chal)
 	instance.Status.Conditions = []metav1.Condition{
 		{
 			Type:               "Ready",
 			Status:             metav1.ConditionTrue,
-			ObservedGeneration: instance.ObjectMeta.Generation,
+			ObservedGeneration: instance.Generation,
 			Reason:             condition,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},
@@ -161,8 +161,11 @@ func (r *ChallengeInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		l.Error(updErr, "failed to update status")
 	}
 
+	if instance.Spec.Expiration == nil {
+		return ctrl.Result{}, nil
+	}
 	return ctrl.Result{
-		RequeueAfter: instance.Spec.Expiration.Sub(time.Now()) + 1*time.Second,
+		RequeueAfter: time.Until(instance.Spec.Expiration.Time) + 1*time.Second,
 	}, nil
 }
 
@@ -195,10 +198,8 @@ func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			reconciles := make([]reconcile.Request, 0, len(instancesList.Items))
 			for _, instance := range instancesList.Items {
 				reconciles = append(reconciles, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: instance.Namespace,
-						Name:      instance.Name,
-					},
+					Namespace: instance.Namespace,
+					Name:      instance.Name,
 				})
 			}
 
@@ -217,10 +218,8 @@ func (r *ChallengeInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			reconciles := make([]reconcile.Request, 0, len(instancesList.Items))
 			for _, instance := range instancesList.Items {
 				reconciles = append(reconciles, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: instance.Namespace,
-						Name:      instance.Name,
-					},
+					Namespace: instance.Namespace,
+					Name:      instance.Name,
 				})
 			}
 

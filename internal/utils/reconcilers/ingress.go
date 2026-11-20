@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
+
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
-	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,9 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"slices"
-	"strings"
 )
 
 var gatewayNamespace = gatewayv1.Namespace("prism-ctf-system")
@@ -45,7 +44,7 @@ func gatewayParentRefTcp() []gatewayv1.ParentReference {
 
 var pathMatchPathPrefix = gatewayv1.PathMatchPathPrefix
 var serviceKind = gatewayv1.Kind("Service")
-var portNotFound = errors.New("port not found in service")
+var errPortNotFound = errors.New("port not found in service")
 
 func ExposeDomainMap(exposes []prismctfv1.ExposeSpec, challengeName, domain string) map[string]string {
 	out := map[string]string{}
@@ -78,7 +77,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 		l.Error(err, "deployment deleter error")
 	}
 
-	tlsRouteDeleter, err := utils.NewDeleter(ctx, c, &gatewayv1alpha2.TLSRoute{}, namespace)
+	tlsRouteDeleter, err := utils.NewDeleter(ctx, c, &gatewayv1.TLSRoute{}, namespace)
 	if err != nil {
 		l.Error(err, "service deleter error")
 	}
@@ -98,7 +97,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 				return port.Port == int32(expose.Port)
 			})
 			if pIdx == -1 {
-				return nil, fmt.Errorf("container `%s` port `%d`: %w", expose.Container, expose.Port, portNotFound)
+				return nil, fmt.Errorf("container `%s` port `%d`: %w", expose.Container, expose.Port, errPortNotFound)
 			}
 			exposedUrls = append(exposedUrls, prismctfv1.ExposeStatus{
 				Name:     expose.Name,
@@ -118,17 +117,16 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 				Protocol: expose.Protocol,
 			})
 			// only create routes for deployments that have at least one ready replica so that the placeholder works
-			if ready, found := statusMap[expose.Container]; !(found && ready) {
+			if ready, found := statusMap[expose.Container]; !found || !ready {
 				continue
 			}
 			backendPort := gatewayv1.PortNumber(expose.Port)
 			backendNamespace := gatewayv1.Namespace(namespace)
-			backendRef := gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
+			backendRef := gatewayv1.BackendRef{
 				Kind:      &serviceKind,
 				Name:      gatewayv1.ObjectName(expose.Container),
 				Port:      &backendPort,
 				Namespace: &backendNamespace,
-			},
 			}
 			switch expose.Protocol {
 			case prismctfv1.ExposeProtocolHTTP:
@@ -145,7 +143,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 							}
 						}
 						route.Labels = commonLabels
-						route.Spec.CommonRouteSpec.ParentRefs = gatewayParentRefHttp()
+						route.Spec.ParentRefs = gatewayParentRefHttp()
 						route.Spec.Hostnames = []gatewayv1.Hostname{
 							gatewayv1.Hostname(exposeHost),
 						}
@@ -153,7 +151,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 							Matches: []gatewayv1.HTTPRouteMatch{{
 								Path: &gatewayv1.HTTPPathMatch{
 									Type:  &pathMatchPathPrefix,
-									Value: proto.String("/"),
+									Value: new("/"),
 								},
 							}},
 							BackendRefs: []gatewayv1.HTTPBackendRef{{
@@ -169,7 +167,7 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 				}
 			case prismctfv1.ExposeProtocolTCP:
 				{
-					route := &gatewayv1alpha2.TLSRoute{
+					route := &gatewayv1.TLSRoute{
 						ObjectMeta: meta,
 					}
 					tlsRouteDeleter.MarkUsed(ctx, route)
@@ -181,11 +179,11 @@ func ReconcileIngress(ctx context.Context, c client.Client, namespace string, co
 							}
 						}
 						route.Labels = commonLabels
-						route.Spec.CommonRouteSpec.ParentRefs = gatewayParentRefTcp()
+						route.Spec.ParentRefs = gatewayParentRefTcp()
 						route.Spec.Hostnames = []gatewayv1.Hostname{
 							gatewayv1.Hostname(exposeHost),
 						}
-						route.Spec.Rules = []gatewayv1alpha2.TLSRouteRule{{
+						route.Spec.Rules = []gatewayv1.TLSRouteRule{{
 							BackendRefs: []gatewayv1.BackendRef{backendRef},
 						}}
 						return nil

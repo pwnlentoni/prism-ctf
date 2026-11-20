@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMGBASE ?= registry.gitlab.com/pwnlentoni/prism-ctf
+IMGBASE ?= ghcr.io/pwnlentoni/prism-ctf
 IMGTAG ?= latest
 IMGSEP ?= /
 IMG ?= $(IMGBASE):$(IMGTAG)
@@ -74,6 +74,7 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 # CertManager is installed by default; skip with:
 # - CERT_MANAGER_INSTALL_SKIP=true
 KIND_CLUSTER ?= prism-ctf-test-e2e
+KIND_NODE_IMAGE ?= kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
 
 .PHONY: setup-test-e2e
 setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
@@ -86,7 +87,7 @@ setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
 			echo "Kind cluster '$(KIND_CLUSTER)' already exists. Skipping creation." ;; \
 		*) \
 			echo "Creating Kind cluster '$(KIND_CLUSTER)'..."; \
-			$(KIND) create cluster --name $(KIND_CLUSTER) ;; \
+			$(KIND) create cluster --name $(KIND_CLUSTER) --image $(KIND_NODE_IMAGE) ;; \
 	esac
 
 .PHONY: test-e2e
@@ -144,16 +145,13 @@ docker-push: ## Push docker image with the manager.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile.tcp > Dockerfile.tcp.cross
+	# the Go builder stages already use --platform=$$BUILDPLATFORM and cross-compile via TARGETOS/TARGETARCH
 	- $(CONTAINER_TOOL) buildx create --name prism-ctf-builder
 	$(CONTAINER_TOOL) buildx use prism-ctf-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${TCPIMG} -f Dockerfile.tcp.cross .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${TCPIMG} -f Dockerfile.tcp .
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${HTTPIMG} -f Dockerfile.http .
 	- $(CONTAINER_TOOL) buildx rm prism-ctf-builder
-	rm Dockerfile.cross Dockerfile.tcp.cross
 
 .PHONY: build-installer
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
@@ -161,6 +159,13 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
 	cd config/placeholders && "$(KUSTOMIZE)" edit set image placeholder-tcp=${TCPIMG} placeholder-http=${HTTPIMG}
 	"$(KUSTOMIZE)" build config/default | sed -e 's/$${challs_domain}/'${CHALLS_DOMAIN}'/g' -e 's/$${nodeport_mode}/'${NODEPORT_MODE}'/g' -e 's/$${use_affinity}/'${USE_AFFINITY}'/g' > dist/install.yaml
+
+.PHONY: build-installer-template
+build-installer-template: manifests generate kustomize ## Generate dist/install.yaml with pinned images, keeping the $${challs_domain}, $${nodeport_mode} and $${use_affinity} placeholders.
+	mkdir -p dist
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	cd config/placeholders && "$(KUSTOMIZE)" edit set image placeholder-tcp=${TCPIMG} placeholder-http=${HTTPIMG}
+	"$(KUSTOMIZE)" build config/default > dist/install.yaml
 
 ##@ Deployment
 
@@ -204,8 +209,8 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v5.7.1
-CONTROLLER_TOOLS_VERSION ?= v0.20.0
+KUSTOMIZE_VERSION ?= v5.8.3
+CONTROLLER_TOOLS_VERSION ?= v0.23.0
 
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell v='$(call gomodver,sigs.k8s.io/controller-runtime)'; \
@@ -213,11 +218,11 @@ ENVTEST_VERSION ?= $(shell v='$(call gomodver,sigs.k8s.io/controller-runtime)'; 
   printf '%s\n' "$$v" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/release-\1.\2/')
 
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
-ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
-  [ -n "$$v" ] || { echo "Set ENVTEST_K8S_VERSION manually (k8s.io/api replace has no tag)" >&2; exit 1; }; \
-  printf '%s\n' "$$v" | sed -E 's/^v?[0-9]+\.([0-9]+).*/1.\1/')
+# Pinned to the deployment target (k3s 1.36) instead of being derived from k8s.io/api,
+# which gateway-api v1.7.0 forces to v0.37.
+ENVTEST_K8S_VERSION ?= 1.36
 
-GOLANGCI_LINT_VERSION ?= v2.7.2
+GOLANGCI_LINT_VERSION ?= v2.15.0
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)

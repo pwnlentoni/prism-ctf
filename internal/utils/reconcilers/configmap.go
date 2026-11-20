@@ -3,24 +3,31 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	"google.golang.org/protobuf/proto"
+	"maps"
+	"slices"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"maps"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"slices"
+)
+
+const (
+	// flagConfigMapName is the name of the per-challenge flag configmap (and of the volume mounting it)
+	flagConfigMapName = "flag"
+	// flagKey holds the flag; it is also the file name the flag is mounted as
+	flagKey = "flag"
+	// flagLFKey holds the flag followed by a newline
+	flagLFKey = "flag_lf"
 )
 
 func ReconcileConfigMap(ctx context.Context, c client.Client, namespace string, commonLabels map[string]string, parent metav1.Object, flag *string, exposeMap map[string]string) error {
 	l := log.FromContext(ctx)
 	{
 		cm := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "services",
-			},
+			Namespace: namespace,
+			Name:      "services",
 		}
 		op, err := controllerutil.CreateOrUpdate(ctx, c, cm, func() error {
 			if !controllerutil.HasControllerReference(cm) {
@@ -62,10 +69,8 @@ func ReconcileConfigMap(ctx context.Context, c client.Client, namespace string, 
 	}
 	{
 		cm := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "flag",
-			},
+			Namespace: namespace,
+			Name:      flagConfigMapName,
 		}
 		if flag != nil {
 			op, err := controllerutil.CreateOrUpdate(ctx, c, cm, func() error {
@@ -79,16 +84,16 @@ func ReconcileConfigMap(ctx context.Context, c client.Client, namespace string, 
 				cm.Labels = commonLabels
 
 				if cm.Immutable == nil || !*cm.Immutable {
-					cm.Immutable = proto.Bool(true)
+					cm.Immutable = new(true)
 				}
 				if cm.Data == nil {
 					cm.Data = map[string]string{}
 				}
-				if _, found := cm.Data["flag"]; !found {
-					cm.Data["flag"] = *flag
+				if _, found := cm.Data[flagKey]; !found {
+					cm.Data[flagKey] = *flag
 				}
-				if _, found := cm.Data["flag_lf"]; !found {
-					cm.Data["flag_lf"] = *flag + "\n"
+				if _, found := cm.Data[flagLFKey]; !found {
+					cm.Data[flagLFKey] = *flag + "\n"
 				}
 				return nil
 			})

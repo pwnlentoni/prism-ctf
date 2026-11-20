@@ -28,7 +28,6 @@ import (
 	"os"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -209,12 +208,6 @@ func main() {
 	err = gatewayv1.Install(mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "failed to install gateway v1")
-		os.Exit(1)
-	}
-
-	err = gatewayv1alpha2.Install(mgr.GetScheme())
-	if err != nil {
-		setupLog.Error(err, "failed to install gateway v1alpha2")
 		os.Exit(1)
 	}
 

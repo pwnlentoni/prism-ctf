@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -316,6 +317,74 @@ var _ = Describe("Manager", Ordered, func() {
 		})
 
 		// +kubebuilder:scaffold:e2e-webhooks-checks
+
+		It("should reconcile a SharedChallenge into a Deployment without API warnings", func() {
+			const chalName = "e2e-shared"
+			chalNamespace := "prism-ctf-shared-" + chalName
+
+			By("creating a SharedChallenge with HTTP and gRPC probes (no 1.37-only probe fields set)")
+			cmd := exec.Command("kubectl", "apply", "-f", "-")
+			cmd.Stdin = strings.NewReader(`
+apiVersion: prism-ctf.pwnlentoni.team/v1
+kind: SharedChallenge
+metadata:
+  name: ` + chalName + `
+spec:
+  containers:
+    - ports:
+        - port: 8080
+          proto: TCP
+      egress: false
+      replicas: 1
+      spec:
+        name: backend
+        image: traefik/whoami:latest
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+        livenessProbe:
+          grpc:
+            port: 8080
+  exposes:
+    - container: backend
+      port: 8080
+      protocol: HTTP
+`)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create the SharedChallenge")
+			DeferCleanup(func() {
+				_, _ = utils.Run(exec.Command("kubectl", "delete", "sharedchallenge", chalName,
+					"--ignore-not-found", "--wait=false"))
+			})
+
+			By("waiting for the operator to create the Deployment and network policies")
+			verifyReconciled := func(g Gomega) {
+				_, err := utils.Run(exec.Command("kubectl", "get", "deployment", "backend", "-n", chalNamespace))
+				g.Expect(err).NotTo(HaveOccurred())
+				out, err := utils.Run(exec.Command("kubectl", "get", "ciliumnetworkpolicies", "-n", chalNamespace,
+					"-o", "jsonpath={.items[*].metadata.name}"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(ContainSubstring("isolate"))
+				g.Expect(out).To(ContainSubstring("allow-egress"))
+			}
+			Eventually(verifyReconciled).Should(Succeed())
+
+			By("checking the probes were stored without 1.37-only fields")
+			out, err := utils.Run(exec.Command("kubectl", "get", "deployment", "backend", "-n", chalNamespace,
+				"-o", "jsonpath={.spec.template.spec.containers[0].readinessProbe}"+
+					"{.spec.template.spec.containers[0].livenessProbe}"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(ContainSubstring(`"httpGet"`))
+			Expect(out).To(ContainSubstring(`"grpc"`))
+			Expect(out).NotTo(ContainSubstring(`"protocol"`))
+			Expect(out).NotTo(ContainSubstring(`"mode"`))
+
+			By("checking the manager logged no API warnings about unknown fields")
+			logs, err := utils.Run(exec.Command("kubectl", "logs", controllerPodName, "-n", namespace))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(logs).NotTo(ContainSubstring("unknown field"))
+		})
 
 		// TODO: Customize the e2e test suite with scenarios specific to your project.
 		// Consider applying sample/CR(s) and check their status and/or verifying

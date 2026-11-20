@@ -3,6 +3,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
 	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	"google.golang.org/protobuf/proto"
@@ -31,10 +32,8 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 
 	for _, container := range containers {
 		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      container.Spec.Name,
-				Namespace: namespace,
-			},
+			Name:      container.Spec.Name,
+			Namespace: namespace,
 		}
 		deploymentDeleter.MarkUsed(ctx, deployment)
 		op, err := controllerutil.CreateOrUpdate(ctx, c, deployment, func() error {
@@ -47,38 +46,36 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 			}
 
 			deployment.Labels = commonLabels
-			if deployment.ObjectMeta.CreationTimestamp.IsZero() {
+			if deployment.CreationTimestamp.IsZero() {
 				deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: utils.MapMerge(map[string]string{
 					utils.ContainerNameLabel: container.Spec.Name,
 				}, commonLabels)}
 			}
 
-			deployment.Spec.Replicas = proto.Int32(int32(container.Replicas))
-			deployment.Spec.Template.ObjectMeta.Labels = utils.MapMerge(utils.MapMerge(map[string]string{
+			deployment.Spec.Replicas = new(int32(container.Replicas))
+			deployment.Spec.Template.Labels = utils.MapMerge(utils.MapMerge(map[string]string{
 				utils.ContainerNameLabel: container.Spec.Name,
-			}, commonLabels), deployment.Spec.Template.ObjectMeta.Labels)
+			}, commonLabels), deployment.Spec.Template.Labels)
 			if container.Egress {
-				deployment.Spec.Template.ObjectMeta.Labels[utils.EgressEnabledLabel] = utils.EgressEnabledValue
+				deployment.Spec.Template.Labels[utils.EgressEnabledLabel] = utils.EgressEnabledValue
 			} else {
-				delete(deployment.Spec.Template.ObjectMeta.Labels, utils.EgressEnabledLabel)
+				delete(deployment.Spec.Template.Labels, utils.EgressEnabledLabel)
 			}
-			deployment.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
-			deployment.Spec.Template.Spec.AutomountServiceAccountToken = proto.Bool(false)
+			deployment.Spec.Template.Spec.EnableServiceLinks = new(false)
+			deployment.Spec.Template.Spec.AutomountServiceAccountToken = new(false)
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{
 				*container.Spec,
 			}
 			if flag != nil {
 				deployment.Spec.Template.Spec.Volumes = []corev1.Volume{
 					{
-						Name: "flag",
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "flag"},
-								Items: []corev1.KeyToPath{
-									{
-										Key:  "flag_lf",
-										Path: "flag",
-									},
+						Name: flagConfigMapName,
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							Name: flagConfigMapName,
+							Items: []corev1.KeyToPath{
+								{
+									Key:  flagLFKey,
+									Path: flagKey,
 								},
 							},
 						},
@@ -105,10 +102,8 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 		statusMap[container.Spec.Name] = deployment.Status.ReadyReplicas != 0
 
 		svc := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      container.Spec.Name,
-				Namespace: namespace,
-			},
+			Name:      container.Spec.Name,
+			Namespace: namespace,
 		}
 		serviceDeleter.MarkUsed(ctx, svc)
 		op, err = controllerutil.CreateOrUpdate(ctx, c, svc, func() error {
@@ -124,7 +119,7 @@ func ReconcileContainers(ctx context.Context, c client.Client, namespace string,
 				svc.Spec.Type = corev1.ServiceTypeClusterIP
 			}
 			svc.Labels = commonLabels
-			if svc.ObjectMeta.CreationTimestamp.IsZero() {
+			if svc.CreationTimestamp.IsZero() {
 				svc.Spec.Selector = utils.MapMerge(map[string]string{
 					utils.ContainerNameLabel: container.Spec.Name,
 				}, commonLabels)

@@ -18,6 +18,7 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -86,5 +87,8 @@ type IsolatedChallengeList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&IsolatedChallenge{}, &IsolatedChallengeList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &IsolatedChallenge{}, &IsolatedChallengeList{})
+		return nil
+	})
 }

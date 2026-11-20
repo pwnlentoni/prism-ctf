@@ -19,21 +19,26 @@ package controller
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	prismctfv1 "github.com/pwnlentoni/prism-ctf/api/v1"
+	"github.com/pwnlentoni/prism-ctf/internal/utils"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -62,12 +67,23 @@ var _ = BeforeSuite(func() {
 	var err error
 	err = prismctfv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+	err = gatewayv1.Install(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = ciliumv2.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(utils.RegisterCiliumComparisons()).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd", "bases"),
+			// the reconcilers create Gateway API routes and Cilium network policies
+			filepath.Join(goModuleDir("sigs.k8s.io/gateway-api"), "config", "crd", "standard"),
+			filepath.Join(goModuleDir("github.com/cilium/cilium"),
+				"pkg", "k8s", "apis", "cilium.io", "client", "crds", "v2", "ciliumnetworkpolicies.yaml"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -93,6 +109,13 @@ var _ = AfterSuite(func() {
 		return testEnv.Stop()
 	}, time.Minute, time.Second).Should(Succeed())
 })
+
+// goModuleDir returns the local directory of a module dependency, used to load third-party CRDs.
+func goModuleDir(module string) string {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", module).Output()
+	Expect(err).NotTo(HaveOccurred(), "failed to locate module %s", module)
+	return strings.TrimSpace(string(out))
+}
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.
 // ENVTEST-based tests depend on specific binaries, usually located in paths set by

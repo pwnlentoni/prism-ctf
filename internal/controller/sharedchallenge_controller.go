@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,25 +48,25 @@ type SharedChallengeReconciler struct {
 // +kubebuilder:rbac:groups=prism-ctf.pwnlentoni.team,resources=sharedchallenges/finalizers,verbs=update
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
-func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, chal *prismctfv1.SharedChallenge) (error, string) {
+func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, namespace string, commonLabels map[string]string, chal *prismctfv1.SharedChallenge) (string, error) {
 	l := logf.FromContext(ctx)
 
 	err := reconcilers.ReconcileNamespace(ctx, r.Client, namespace, commonLabels, chal)
 	if err != nil {
 		l.Error(err, "namespace reconcile failed")
-		return err, "NamespaceReconcileFailed"
+		return "NamespaceReconcileFailed", err
 	}
 
 	err = reconcilers.ReconcileRoleBinding(ctx, r.Client, namespace, commonLabels, chal)
 	if err != nil {
 		l.Error(err, "rolebinding reconcile failed")
-		return err, "RoleBindingReconcileFailed"
+		return "RoleBindingReconcileFailed", err
 	}
 
 	err = reconcilers.ReconcileNetworkPolicies(ctx, r.Client, namespace, commonLabels, chal)
 	if err != nil {
 		l.Error(err, "network policy reconcile failed")
-		return err, "NetworkPolicyReconcileFailed"
+		return "NetworkPolicyReconcileFailed", err
 	}
 
 	exposeMap := reconcilers.ExposeDomainMap(chal.Spec.Exposes, chal.Name, utils.DomainSuffix())
@@ -75,21 +74,21 @@ func (r *SharedChallengeReconciler) internalReconcile(ctx context.Context, names
 	err = reconcilers.ReconcileConfigMap(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Flag, exposeMap)
 	if err != nil {
 		l.Error(err, "configmap reconcile failed")
-		return err, "ConfigMapReconcileFailed"
+		return "ConfigMapReconcileFailed", err
 	}
 
 	statusMap, err := reconcilers.ReconcileContainers(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Containers, utils.NodeTypeShared, chal.Spec.Flag)
 	if err != nil {
 		l.Error(err, "containers reconcile failed")
-		return err, "ContainersReconcileFailed"
+		return "ContainersReconcileFailed", err
 	}
 
 	chal.Status.ExposedUrls, err = reconcilers.ReconcileIngress(ctx, r.Client, namespace, commonLabels, chal, chal.Spec.Exposes, statusMap, exposeMap)
 	if err != nil {
 		l.Error(err, "ingress reconcile failed")
-		return err, "IngressReconcileFailed"
+		return "IngressReconcileFailed", err
 	}
-	return nil, "ReconcileSuccess"
+	return "ReconcileSuccess", nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -121,12 +120,12 @@ func (r *SharedChallengeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	commonLabels := utils.MakeCommonLabels(chal.GetName())
 
-	err, condition := r.internalReconcile(ctx, namespace, commonLabels, chal)
+	condition, err := r.internalReconcile(ctx, namespace, commonLabels, chal)
 	chal.Status.Conditions = []metav1.Condition{
 		{
 			Type:               "Ready",
 			Status:             metav1.ConditionTrue,
-			ObservedGeneration: chal.ObjectMeta.Generation,
+			ObservedGeneration: chal.Generation,
 			Reason:             condition,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		},
@@ -164,10 +163,8 @@ func (r *SharedChallengeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			reconciles := make([]reconcile.Request, 0, len(challsList.Items))
 			for _, instance := range challsList.Items {
 				reconciles = append(reconciles, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: instance.Namespace,
-						Name:      instance.Name,
-					},
+					Namespace: instance.Namespace,
+					Name:      instance.Name,
 				})
 			}
 

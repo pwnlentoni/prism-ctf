@@ -28,8 +28,20 @@ import (
 )
 
 const (
-	certmanagerVersion = "v1.19.2"
-	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
+	certmanagerVersion = "v1.21.3"
+	certmanagerChart   = "oci://quay.io/jetstack/charts/cert-manager"
+
+	gatewayAPIVersion = "v1.7.0"
+	gatewayAPIURLTmpl = "https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/standard-install.yaml"
+
+	// only the CiliumNetworkPolicy CRD is installed (the operator creates CNPs), not the Cilium CNI itself
+	ciliumVersion       = "v1.20.5"
+	ciliumCNPCRDURLTmpl = "https://raw.githubusercontent.com/cilium/cilium/%s/" +
+		"pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnetworkpolicies.yaml"
+
+	prometheusOperatorVersion = "v0.95.2"
+	prometheusOperatorURLTmpl = "https://github.com/prometheus-operator/prometheus-operator/releases/download/" +
+		"%s/stripped-down-crds.yaml"
 
 	defaultKindBinary  = "kind"
 	defaultKindCluster = "kind"
@@ -59,10 +71,64 @@ func Run(cmd *exec.Cmd) (string, error) {
 	return string(output), nil
 }
 
+// InstallGatewayAPICRDs installs the standard-channel Gateway API CRDs.
+func InstallGatewayAPICRDs() error {
+	url := fmt.Sprintf(gatewayAPIURLTmpl, gatewayAPIVersion)
+	cmd := exec.Command("kubectl", "apply", "--server-side", "-f", url)
+	_, err := Run(cmd)
+	return err
+}
+
+// UninstallGatewayAPICRDs uninstalls the standard-channel Gateway API CRDs.
+func UninstallGatewayAPICRDs() {
+	url := fmt.Sprintf(gatewayAPIURLTmpl, gatewayAPIVersion)
+	cmd := exec.Command("kubectl", "delete", "--ignore-not-found", "-f", url)
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+}
+
+// InstallCiliumNetworkPolicyCRD installs the CiliumNetworkPolicy CRD.
+func InstallCiliumNetworkPolicyCRD() error {
+	url := fmt.Sprintf(ciliumCNPCRDURLTmpl, ciliumVersion)
+	cmd := exec.Command("kubectl", "apply", "--server-side", "-f", url)
+	_, err := Run(cmd)
+	return err
+}
+
+// UninstallCiliumNetworkPolicyCRD uninstalls the CiliumNetworkPolicy CRD.
+func UninstallCiliumNetworkPolicyCRD() {
+	url := fmt.Sprintf(ciliumCNPCRDURLTmpl, ciliumVersion)
+	cmd := exec.Command("kubectl", "delete", "--ignore-not-found", "-f", url)
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+}
+
+// InstallPrometheusOperatorCRDs installs the prometheus-operator CRDs (needed for the ServiceMonitor).
+func InstallPrometheusOperatorCRDs() error {
+	url := fmt.Sprintf(prometheusOperatorURLTmpl, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "apply", "--server-side", "-f", url)
+	_, err := Run(cmd)
+	return err
+}
+
+// UninstallPrometheusOperatorCRDs uninstalls the prometheus-operator CRDs.
+func UninstallPrometheusOperatorCRDs() {
+	url := fmt.Sprintf(prometheusOperatorURLTmpl, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "delete", "--ignore-not-found", "-f", url)
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+}
+
 // UninstallCertManager uninstalls the cert manager
 func UninstallCertManager() {
-	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
-	cmd := exec.Command("kubectl", "delete", "-f", url)
+	cmd := exec.Command("helm", "uninstall", "cert-manager", "--namespace", "cert-manager", "--wait")
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+	cmd = exec.Command("kubectl", "delete", "ns", "cert-manager", "--ignore-not-found")
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -81,10 +147,18 @@ func UninstallCertManager() {
 	}
 }
 
-// InstallCertManager installs the cert manager bundle.
+// InstallCertManager installs cert-manager via helm, with Gateway API support enabled.
+// The Gateway API CRDs must be installed beforehand.
 func InstallCertManager() error {
-	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
-	cmd := exec.Command("kubectl", "apply", "-f", url)
+	cmd := exec.Command("helm", "upgrade", "--install", "cert-manager", certmanagerChart,
+		"--version", certmanagerVersion,
+		"--namespace", "cert-manager", "--create-namespace",
+		"--set", "crds.enabled=true",
+		"--set", "crds.keep=false",
+		"--set", "config.apiVersion=controller.config.cert-manager.io/v1alpha1",
+		"--set", "config.kind=ControllerConfiguration",
+		"--set", "config.gatewayAPI.enabled=true",
+	)
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
